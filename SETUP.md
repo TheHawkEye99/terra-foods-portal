@@ -108,6 +108,59 @@ something this app can work around).
    set a new password from the sidebar's "Change password" link after they
    first sign in.
 
+## 9. Optional: Weekly Email Reports
+
+Everything above gets you the full working portal. This step is separate and
+optional — it adds automatic weekly emails (all 6 reports, as CSV
+attachments) to any Admin who opts in from the sidebar. Skip this section
+entirely if you don't need it; nothing else in the app depends on it.
+
+This is the one feature in this app that needs a real server, since nothing
+can email you on a schedule from just a browser tab. That means:
+
+**9a. Upgrade to the Blaze plan**
+1. Firebase Console → ⚙ (gear) → **Usage and billing** → **Details & settings** → **Modify plan** → choose **Blaze**, add a payment method.
+2. Then set a safety net: Google Cloud Console → **Billing** → **Budgets & alerts** → **Create budget** → set a small threshold (e.g. $1) with an email alert. At the volume this feature runs at (a handful of emails a week, one scheduled check a day), the expected bill is $0/month — this alert just means you'd hear about it immediately if that ever changed.
+
+**9b. Sign up for Resend (the email sender)**
+1. Go to [resend.com](https://resend.com) and create a free account.
+2. Under **Domains**, add and verify a domain you own (it'll give you a couple of DNS records to add wherever your domain is registered). This is required to send to your admins' real addresses — without a verified domain, Resend only lets you send to the address you signed up with. If you don't own a domain, tell me and we'll switch this feature to send via Gmail SMTP instead, which doesn't need domain verification.
+3. Under **API Keys**, create a new key and copy it somewhere safe.
+
+**9c. Install the tools and connect this project**
+
+From inside the `terra-foods-portal` folder:
+```
+npm install -g firebase-tools    # skip if you already have it
+firebase login
+firebase use terra-foods-portal-c567a
+```
+
+**9d. Store your Resend key as a secret** (never put this in any file — it's a real secret, unlike `firebase-config.js`):
+```
+firebase functions:secrets:set RESEND_API_KEY
+```
+Paste the key from step 9b when prompted.
+
+**9e. Set your sending address**
+
+Open `functions/index.js` and change the `FROM_EMAIL` line near the top to an address on the domain you verified in step 9b, e.g.:
+```js
+const FROM_EMAIL = "Terra Foods Reports <reports@yourdomain.com>";
+```
+
+**9f. Deploy**
+```
+cd functions && npm install && cd ..
+firebase deploy --only functions
+```
+
+**9g. Turn it on**
+
+Each Admin who wants the weekly emails: sidebar → **Weekly email reports** → check "Email me the weekly reports" → pick a day → **Save**. Use **Send me a test now** right away to confirm delivery without waiting for that day to come around (check spam folder the first time, just in case).
+
+Reports are sent daily at 7:00am (India time — change the `TIMEZONE` constant near the top of `functions/index.js` if your business is elsewhere) to whoever's chosen day matches that day. If you ever change `firestore.rules` after this point, you can now publish it with `firebase deploy --only firestore:rules` instead of copy-pasting into the Console, since this project is now wired up for the Firebase CLI.
+
 ---
 
 ## What each role can do

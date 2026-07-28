@@ -27,6 +27,7 @@ import {
   getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, onSnapshot, runTransaction, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 /* ============================== 1. FIREBASE INIT ============================== */
 
@@ -34,6 +35,7 @@ const firebaseConfig = window.TERRA_FIREBASE_CONFIG;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
 setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
 const PLACEHOLDER_DATE = "2027-01-01";
@@ -234,6 +236,45 @@ document.getElementById("changePasswordSave").addEventListener("click", async ()
     } else {
       toast("error","Couldn't update password: " + err.message);
     }
+  }
+});
+
+document.getElementById("weeklyReportBtn").addEventListener("click", ()=>{
+  document.getElementById("weeklyReportOptIn").checked = !!currentUser.weeklyReportOptIn;
+  document.getElementById("weeklyReportDay").value = currentUser.weeklyReportDay || "monday";
+  document.getElementById("weeklyReportFlash").className = "flash";
+  openModal("weeklyReportModal");
+});
+document.getElementById("weeklyReportCancel").addEventListener("click", ()=>closeModal("weeklyReportModal"));
+document.getElementById("weeklyReportSave").addEventListener("click", async ()=>{
+  const optIn = document.getElementById("weeklyReportOptIn").checked;
+  const day = document.getElementById("weeklyReportDay").value;
+  try{
+    await updateDoc(doc(db,"users",currentUser.uid), { weeklyReportOptIn: optIn, weeklyReportDay: day });
+    currentUser.weeklyReportOptIn = optIn;
+    currentUser.weeklyReportDay = day;
+    toast("success", optIn ? `You'll get weekly reports every ${day.charAt(0).toUpperCase()+day.slice(1)}.` : "Weekly reports turned off.");
+    closeModal("weeklyReportModal");
+  }catch(err){ toast("error","Couldn't save: "+err.message); }
+});
+document.getElementById("sendTestReportBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("sendTestReportBtn");
+  const flash = document.getElementById("weeklyReportFlash");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  flash.className = "flash";
+  try{
+    const sendTest = httpsCallable(functions, "sendTestReportEmail");
+    const result = await sendTest();
+    flash.className = "flash show success";
+    flash.textContent = (result.data && result.data.message) || `Test email sent to ${currentUser.email}.`;
+  }catch(err){
+    flash.className = "flash show error";
+    flash.textContent = "Couldn't send test email: " + (err.message || "unknown error");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 });
 

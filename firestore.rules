@@ -45,9 +45,12 @@ service cloud.firestore {
       allow create: if isAdmin() || (isManager() && request.resource.data.role == 'staff');
 
       // Admin can edit anyone. Manager can only edit an account that is (and stays) Staff
-      // — e.g. toggling `active`, never promoting someone to Manager/Admin.
+      // — e.g. toggling `active`, never promoting someone to Manager/Admin. Any signed-in
+      // user can also edit their OWN weekly-report preference fields — self-service, and
+      // narrow enough (only those two fields) that it can't be used to escalate anything.
       allow update: if isAdmin() ||
-        (isManager() && resource.data.role == 'staff' && request.resource.data.role == 'staff');
+        (isManager() && resource.data.role == 'staff' && request.resource.data.role == 'staff') ||
+        (request.auth.uid == uid && changedKeys().hasOnly(['weeklyReportOptIn','weeklyReportDay']));
 
       // Admin can delete/deactivate any account. Manager can only delete Staff accounts.
       allow delete: if isAdmin() || (isManager() && resource.data.role == 'staff');

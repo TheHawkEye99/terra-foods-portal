@@ -337,8 +337,8 @@ function setDefaultDates(){
     const el = document.getElementById(id);
     if(el && !el.value) el.value = today;
   });
-  const expiryInput = document.getElementById("purchaseExpiry");
-  if(expiryInput && !expiryInput.value) expiryInput.value = PLACEHOLDER_DATE;
+  // Deliberately no default for purchaseExpiry — it must be entered by hand every time,
+  // since it can never be corrected afterward once the purchase is saved.
 }
 
 /* ============================== 4. REAL-TIME DATA LAYER ============================== */
@@ -469,7 +469,7 @@ async function recordPurchase({productId, qty, price, vendor, date, expiryDate, 
     if(!snap.exists()) throw new Error("Product not found");
     const p = snap.data();
     const newBatches = (p.batches||[]).map(b=>({...b}));
-    if(qty > 0) newBatches.push({ qty, expiryDate: expiryDate || PLACEHOLDER_DATE, purchaseDate: date || null });
+    if(qty > 0) newBatches.push({ qty, expiryDate, purchaseDate: date || null });
     tx.update(productRef, {
       stock: (p.stock||0) + qty,
       purchaseTotal: (p.purchaseTotal||0) + qty,
@@ -560,7 +560,7 @@ async function ensureParty(kind, name){
 const VIEW_TITLES = {
   dashboard:"Dashboard", products:"Products", "add-product":"Add Product",
   "record-sale":"Record Sale", "record-purchase":"Record Purchase", adjustments:"Adjustments",
-  expiry:"Update Expiry Dates", parties:"Clients & Suppliers", reports:"Reports",
+  expiry:"Expiry Dates", parties:"Clients & Suppliers", reports:"Reports",
   users:"Users", settings:"Backup & Settings"
 };
 
@@ -617,15 +617,18 @@ function renderAll(){
 /* ============================== 6. DASHBOARD ============================== */
 
 function computeTotals(){
-  let stockValue=0, salesValue=0, totalStockQty=0, reorderCount=0;
+  let stockValue=0, salesValue=0, totalStockQty=0, reorderCount=0, damagedQty=0, damagedValue=0, expiredQty=0;
   for(const p of activeProducts()){
     const maxCost = p.maxCost || p.cost || 0;
     stockValue += (p.stock||0) * maxCost;
     salesValue += (p.salesTotal||0) * (p.price||0);
     totalStockQty += (p.stock||0);
     if((p.stock||0) <= (p.reorderThreshold||0)) reorderCount++;
+    damagedQty += (p.damageTotal||0);
+    damagedValue += (p.damageTotal||0) * maxCost;
+    expiredQty += (p.expiredTotal||0);
   }
-  return { stockValue, salesValue, totalStockQty, reorderCount };
+  return { stockValue, salesValue, totalStockQty, reorderCount, damagedQty, damagedValue, expiredQty };
 }
 
 function computeExpiryStats(){
@@ -672,12 +675,17 @@ function renderKPIs(totals, expiryStats){
     kpiCard("kpiSalesValue","Sales Value Till Date", totals.salesValue, {money:true}) +
     kpiCard("kpiReorder","Items to Reorder", totals.reorderCount, {warn: totals.reorderCount>0}) +
     kpiCard("kpiExpiry","Expiring Within 30 Days", expiryStats.soonQty+expiryStats.overdueQty,
-      {warn: (expiryStats.soonQty+expiryStats.overdueQty)>0, sub: expiryStats.overdueQty>0 ? `${fmtNum(expiryStats.overdueQty)} already overdue` : ""});
+      {warn: (expiryStats.soonQty+expiryStats.overdueQty)>0, sub: expiryStats.overdueQty>0 ? `${fmtNum(expiryStats.overdueQty)} already overdue` : ""}) +
+    kpiCard("kpiDamaged","Damaged Stock", totals.damagedQty,
+      {warn: totals.damagedQty>0, sub: totals.damagedQty>0 ? `worth ${fmtMoney(totals.damagedValue)}` : ""}) +
+    kpiCard("kpiExpired","Expired Stock", totals.expiredQty, {warn: totals.expiredQty>0});
   animateCount(document.getElementById("kpiStockQty"), totals.totalStockQty);
   animateCount(document.getElementById("kpiStockValue"), totals.stockValue, {money:true});
   animateCount(document.getElementById("kpiSalesValue"), totals.salesValue, {money:true});
   animateCount(document.getElementById("kpiReorder"), totals.reorderCount);
   animateCount(document.getElementById("kpiExpiry"), expiryStats.soonQty+expiryStats.overdueQty);
+  animateCount(document.getElementById("kpiDamaged"), totals.damagedQty);
+  animateCount(document.getElementById("kpiExpired"), totals.expiredQty);
 }
 
 function monthsWithSales(){
@@ -806,6 +814,8 @@ function timeAgo(createdAt){
   return d.toLocaleDateString("en-IN", {day:"numeric", month:"short"}) + " " + d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
 }
 
+const REVERSIBLE_TYPES = ["sale","purchase","damage","expired","sample"];
+
 function renderActivityFeed(){
   const tbody = document.getElementById("activityFeedBody");
   const rows = activity.slice(0, 25);
@@ -819,7 +829,7 @@ function renderActivityFeed(){
       <td class="name-cell">${escapeHtml(a.productName||"(deleted)")}</td>
       <td class="right">${fmtNum(a.qty)}</td>
       <td class="name-cell">${escapeHtml(a.note||"")}</td>
-      <td>${canUndo ? `<button class="btn small secondary undo-btn" data-id="${a.id}">Undo</button>` : ""}</td>
+      <td>${(canUndo && REVERSIBLE_TYPES.includes(a.type)) ? `<button class="btn small secondary undo-btn" data-id="${a.id}">Undo</button>` : ""}</td>
     </tr>
   `).join("");
   if(canUndo){
@@ -915,6 +925,7 @@ function renderProductsTable(){
   }).join("");
 
   if(editable){
+    const FIELD_LABELS = { cost:"Cost", price:"Price", reorderThreshold:"Reorder threshold" };
     tbody.querySelectorAll(".field-cost, .field-price, .field-threshold").forEach(input=>{
       input.addEventListener("change", async (e)=>{
         const tr = e.target.closest("tr");
@@ -922,14 +933,20 @@ function renderProductsTable(){
         const field = e.target.classList.contains("field-cost") ? "cost" : e.target.classList.contains("field-price") ? "price" : "reorderThreshold";
         const val = Number(e.target.value);
         if(isNaN(val) || val < 0){ toast("error","Enter a valid non-negative number."); renderProductsTable(); return; }
+        const p = findProduct(id);
+        const oldVal = p ? p[field] : null;
         try{
           const fields = { updatedAt: serverTimestamp(), updatedBy: currentUser.uid };
           fields[field] = val;
           if(field === "cost"){
-            const p = findProduct(id);
             fields.maxCost = Math.max(p.maxCost||0, val);
           }
           await updateDoc(doc(db,"products",id), fields);
+          await addDoc(collection(db,"activity"), {
+            type:"modified", productId:id, productName: p ? p.name : "", qty:0,
+            note:`${FIELD_LABELS[field]} changed from ${oldVal} to ${val}`,
+            ...actorFields(), createdAt: serverTimestamp()
+          });
           toast("success","Saved.");
         }catch(err){ toast("error","Couldn't save: "+err.message); }
       });
@@ -980,6 +997,11 @@ document.getElementById("modifyProductSave").addEventListener("click", async ()=
     await updateDoc(doc(db,"products",p.id), {
       purchaseTotal, salesTotal, stock:newStock, updatedAt: serverTimestamp(), updatedBy: currentUser.uid
     });
+    await addDoc(collection(db,"activity"), {
+      type:"modified", productId:p.id, productName:p.name, qty:0,
+      note:`Corrected totals — purchased ${p.purchaseTotal||0}→${purchaseTotal}, sold ${p.salesTotal||0}→${salesTotal}`,
+      ...actorFields(), createdAt: serverTimestamp()
+    });
     toast("success", newStock<0 ? "Saved — note stock is now negative." : "Totals corrected.");
     closeModal("modifyProductModal");
   }catch(err){ toast("error","Couldn't save: "+err.message); }
@@ -993,6 +1015,8 @@ document.getElementById("addProductForm").addEventListener("submit", async (e)=>
   const price = Number(document.getElementById("npPrice").value);
   const gst = Number(document.getElementById("npGst").value) || 0;
   const reorderThreshold = Number(document.getElementById("npThreshold").value) || 0;
+  const initialStock = Number(document.getElementById("npStock").value) || 0;
+  const expiryDate = document.getElementById("npExpiry").value;
   const flash = document.getElementById("addProductFlash");
   flash.className = "flash";
   if(!name){ flash.className="flash show error"; flash.textContent="Product name is required."; return; }
@@ -1002,12 +1026,21 @@ document.getElementById("addProductForm").addEventListener("submit", async (e)=>
   if(isNaN(cost) || cost<0 || isNaN(price) || price<0){
     flash.className="flash show error"; flash.textContent="Cost and price must be valid non-negative numbers."; return;
   }
+  if(initialStock>0 && !expiryDate){
+    flash.className="flash show error"; flash.textContent="Enter an expiry date for the initial stock — it can't be added later."; return;
+  }
   try{
-    await addDoc(collection(db,"products"), {
+    const productRef = await addDoc(collection(db,"products"), {
       name, pack, cost, price, gst, reorderThreshold,
-      stock:0, purchaseTotal:0, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0,
-      maxCost:cost, batches:[], archived:false,
+      stock: initialStock, purchaseTotal: initialStock, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0,
+      maxCost:cost, batches: initialStock>0 ? [{ qty:initialStock, expiryDate, purchaseDate: todayISO() }] : [],
+      archived:false,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: currentUser.uid
+    });
+    await addDoc(collection(db,"activity"), {
+      type:"added", productId:productRef.id, productName:name, qty:initialStock,
+      note:`Added — cost ${fmtMoney(cost)}, price ${fmtMoney(price)}${initialStock>0 ? `, expiry ${expiryDate}` : ""}`,
+      ...actorFields(), createdAt: serverTimestamp()
     });
     flash.className="flash show success"; flash.textContent=`"${name}" added.`;
     e.target.reset();
@@ -1110,13 +1143,15 @@ document.getElementById("purchaseForm").addEventListener("submit", async (e)=>{
   if(!productId || !qty || qty<=0 || isNaN(price) || price<0 || !date){
     flash.className="flash show error"; flash.textContent="Please fill in product, a positive quantity, price, and date."; return;
   }
+  if(!expiryDate){
+    flash.className="flash show error"; flash.textContent="Expiry date is required — it can't be added or changed after this purchase is saved."; return;
+  }
   try{
     await recordPurchase({productId, qty, price, vendor, date, expiryDate, note});
     flash.className="flash show success"; flash.textContent="Purchase recorded.";
     toast("success","Purchase recorded.");
     e.target.reset();
     document.getElementById("purchaseDate").value = todayISO();
-    document.getElementById("purchaseExpiry").value = PLACEHOLDER_DATE;
     document.getElementById("purchasePreview").classList.add("hidden");
   }catch(err){ flash.className="flash show error"; flash.textContent="Couldn't record purchase: "+err.message; }
 });
@@ -1185,36 +1220,21 @@ function renderExpiryView(){
   const rows = expiryRows();
   const total = rows.length;
   const done = rows.filter(r=>r.expiryDate !== PLACEHOLDER_DATE).length;
-  document.getElementById("expiryProgressLabel").textContent = `${done} of ${total} batches have a real expiry date`;
+  document.getElementById("expiryProgressLabel").textContent = `${done} of ${total} batches have a specific expiry date on record`;
   document.getElementById("expiryProgressFill").style.width = total ? (done/total*100)+"%" : "0%";
 
-  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="4" class="note" style="font-family:-apple-system,sans-serif;">No stocked batches to date yet — record a purchase first.</td></tr>'; return; }
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="4" class="note" style="font-family:-apple-system,sans-serif;">No stocked batches yet — expiry dates are set when a product is added or a purchase is recorded.</td></tr>'; return; }
 
+  // Read-only by design: expiry dates are only ever set once, at the point a product is
+  // added or a purchase is recorded — there is deliberately no edit control here.
   tbody.innerHTML = rows.map(r=>`
-    <tr class="${r.expiryDate!==PLACEHOLDER_DATE ? "expiry-done" : ""}" data-product="${r.productId}" data-batch="${r.batchIndex}">
+    <tr class="${r.expiryDate!==PLACEHOLDER_DATE ? "expiry-done" : ""}">
       <td class="name-cell">${escapeHtml(r.productName)}</td>
       <td class="name-cell">${escapeHtml(r.pack||"")}</td>
       <td class="right">${fmtNum(r.qty)}</td>
-      <td><input type="date" class="date-input expiry-date-input" value="${r.expiryDate}"></td>
+      <td class="mono">${r.expiryDate}</td>
     </tr>
   `).join("");
-
-  tbody.querySelectorAll(".expiry-date-input").forEach(input=>{
-    input.addEventListener("change", async (e)=>{
-      const tr = e.target.closest("tr");
-      const productId = tr.dataset.product;
-      const batchIndex = Number(tr.dataset.batch);
-      const p = findProduct(productId);
-      if(!p){ toast("error","That product no longer exists."); return; }
-      const newBatches = (p.batches||[]).map(b=>({...b}));
-      if(!newBatches[batchIndex]){ toast("error","That batch changed — refreshing."); renderExpiryView(); return; }
-      newBatches[batchIndex].expiryDate = e.target.value || PLACEHOLDER_DATE;
-      try{
-        await updateDoc(doc(db,"products",productId), { batches:newBatches, updatedAt: serverTimestamp(), updatedBy: currentUser.uid });
-        toast("success","Expiry date saved.");
-      }catch(err){ toast("error","Couldn't save: "+err.message); }
-    });
-  });
 }
 
 /* ============================== 10. CLIENTS & SUPPLIERS ============================== */
@@ -1320,10 +1340,12 @@ function reportStockValue(){
   const rows = activeProducts().map(p=>{
     const cost = p.maxCost || p.cost || 0;
     const value = (p.stock||0) * cost;
-    return { csv:[p.name, p.pack||"", p.stock||0, cost, value],
-      display:[escapeHtml(p.name), escapeHtml(p.pack||""), fmtNum(p.stock), fmtMoney(cost), fmtMoney(value)] };
+    const damagedQty = p.damageTotal||0;
+    const sampleQty = p.sampleTotal||0;
+    return { csv:[p.name, p.pack||"", p.stock||0, cost, value, damagedQty, sampleQty],
+      display:[escapeHtml(p.name), escapeHtml(p.pack||""), fmtNum(p.stock), fmtMoney(cost), fmtMoney(value), fmtNum(damagedQty), fmtNum(sampleQty)] };
   }).sort((a,b)=>b.csv[4]-a.csv[4]);
-  return { headers:["Product","Pack","Stock","Cost (highest)","Value"], rows };
+  return { headers:["Product","Pack","Stock","Cost (highest)","Value","Damaged Qty","Sample Qty"], rows };
 }
 
 function reportPriceList(){
@@ -1608,13 +1630,13 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
   const idx = {
     name: header.indexOf("name"), pack: header.indexOf("pack"), cost: header.indexOf("cost"),
     price: header.indexOf("price"), gst: header.indexOf("gst"), reorderThreshold: header.indexOf("reorderthreshold"),
-    stock: header.indexOf("stock")
+    stock: header.indexOf("stock"), expiryDate: header.indexOf("expirydate")
   };
   if(idx.name === -1 || idx.cost === -1 || idx.price === -1){
     flash.className="flash show error"; flash.textContent="The CSV needs at least name, cost, and price columns."; e.target.value=""; return;
   }
 
-  const validRows = [], invalidRows = [];
+  const validRows = [], invalidRows = [], stockWarnings = [];
   let stockCount = 0;
   rows.slice(1).forEach((r, i)=>{
     const rowNum = i + 2; // +1 to skip header, +1 for 1-indexed human-readable row numbers
@@ -1635,14 +1657,30 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
         if(!isNaN(parsed) && parsed >= 0) stock = parsed;
       }
     }
-    if(stock !== null) stockCount++;
+    const expiryDate = idx.expiryDate>-1 ? (r[idx.expiryDate]||"").trim() : "";
+
+    // Expiry date is mandatory whenever this row would actually create a NEW batch — i.e.
+    // stock>0 and the matching product (new or existing) has no tracked batches yet. If the
+    // matching product already has real batches, stock is just a number correction and no
+    // new batch (so no expiry) is involved. Rather than reject the whole row over this,
+    // only the stock/batch part is skipped — name/cost/price/etc. still get applied — and
+    // it's called out clearly so it's never silently dropped.
+    const existingProduct = activeProducts().find(p=>p.name.toLowerCase()===name.toLowerCase());
+    const willCreateNewBatch = stock !== null && stock > 0 && !(existingProduct && existingProduct.batches && existingProduct.batches.length);
+    if(willCreateNewBatch && !expiryDate){
+      stockWarnings.push({ rowNum, name, reason:"has a stock quantity but no expiry date — stock left unchanged, other fields still applied" });
+      stock = null;
+    } else if(stock !== null){
+      stockCount++;
+    }
+
     validRows.push({
       rowNum, name,
       pack: idx.pack>-1 ? (r[idx.pack]||"").trim() : "",
       cost, price,
       gst: idx.gst>-1 && r[idx.gst]!=="" ? Number(r[idx.gst]) : 5,
       reorderThreshold: idx.reorderThreshold>-1 && r[idx.reorderThreshold]!=="" ? Number(r[idx.reorderThreshold]) : 50,
-      stock
+      stock, expiryDate
     });
   });
 
@@ -1657,6 +1695,12 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
     html += `<ul style="margin:8px 0 0 18px; padding:0;">` +
       invalidRows.slice(0,10).map(r=>`<li>Row ${r.rowNum} (${escapeHtml(r.name)}): ${escapeHtml(r.reason)}</li>`).join("") +
       (invalidRows.length>10 ? `<li>…and ${invalidRows.length-10} more</li>` : "") + `</ul>`;
+  }
+  if(stockWarnings.length){
+    html += `<p style="color:var(--mustard); margin:10px 0 0;">⚠ Missing expiry date for ${stockWarnings.length} row${stockWarnings.length===1?"":"s"}:</p>` +
+      `<ul style="margin:4px 0 0 18px; padding:0;">` +
+      stockWarnings.slice(0,10).map(r=>`<li>Row ${r.rowNum} (${escapeHtml(r.name)}): ${escapeHtml(r.reason)}</li>`).join("") +
+      (stockWarnings.length>10 ? `<li>…and ${stockWarnings.length-10} more</li>` : "") + `</ul>`;
   }
   preview.innerHTML = html;
   document.getElementById("confirmImportBtn").style.display = validRows.length ? "inline-flex" : "none";
@@ -1696,22 +1740,31 @@ document.getElementById("confirmImportBtn").addEventListener("click", async ()=>
         };
         // stock is only touched when the CSV row actually has a value — blank means "leave it alone"
         if(row.stock !== null){
+          const needsNewBatch = !(existing.batches && existing.batches.length);
+          if(needsNewBatch && row.stock > 0 && !row.expiryDate){
+            // Data changed since the preview (e.g. this product's batches were cleared in
+            // the meantime) — refuse rather than silently write an undated batch.
+            throw new Error("stock given but no expiry date, and this would create a new batch");
+          }
           fields.stock = row.stock;
           // if this product has no tracked batches yet, seed one so the new stock is
           // immediately assignable an expiry date; if it already has real batches, leave
           // them untouched rather than risk clobbering genuine per-lot expiry data.
-          if(!(existing.batches && existing.batches.length)){
-            fields.batches = row.stock > 0 ? [{ qty: row.stock, expiryDate: PLACEHOLDER_DATE, purchaseDate: null }] : [];
+          if(needsNewBatch){
+            fields.batches = row.stock > 0 ? [{ qty: row.stock, expiryDate: row.expiryDate, purchaseDate: null }] : [];
           }
         }
         await updateDoc(doc(db,"products",existing.id), fields);
         updated++;
       } else {
         const initialStock = row.stock !== null ? row.stock : 0;
+        if(initialStock > 0 && !row.expiryDate){
+          throw new Error("stock given but no expiry date, and this would create a new batch");
+        }
         await addDoc(collection(db,"products"), {
           name:row.name, pack:row.pack, cost:row.cost, price:row.price, gst:row.gst, reorderThreshold:row.reorderThreshold,
-          stock:initialStock, purchaseTotal:0, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0,
-          maxCost:row.cost, batches: initialStock>0 ? [{ qty:initialStock, expiryDate:PLACEHOLDER_DATE, purchaseDate:null }] : [], archived:false,
+          stock:initialStock, purchaseTotal:initialStock, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0,
+          maxCost:row.cost, batches: initialStock>0 ? [{ qty:initialStock, expiryDate: row.expiryDate, purchaseDate:null }] : [], archived:false,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: currentUser.uid
         });
         added++;
@@ -1722,6 +1775,17 @@ document.getElementById("confirmImportBtn").addEventListener("click", async ()=>
   }
   progressFill.style.width = "100%";
   progressLabel.textContent = `Done — ${validRows.length} of ${validRows.length} processed.`;
+
+  // One aggregate log entry for the whole import, rather than one per row — a bulk import
+  // is one event from a "what happened" point of view, and per-row entries would flood the
+  // activity feed and bury day-to-day sale/purchase entries under a single CSV upload.
+  if(added>0 || updated>0){
+    await addDoc(collection(db,"activity"), {
+      type:"import", productId:"", productName:"CSV import", qty: added+updated,
+      note:`Products CSV: ${added} added, ${updated} updated${failures.length ? `, ${failures.length} failed` : ""}`,
+      ...actorFields(), createdAt: serverTimestamp()
+    });
+  }
 
   flash.className = "flash show success";
   flash.textContent = `Import complete: ${added} added, ${updated} updated` +

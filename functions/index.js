@@ -9,9 +9,10 @@
      - sendTestReportEmail: callable from the app's "Send me a test now"
        button, so an Admin can verify delivery immediately after setup.
 
-   IMPORTANT — before deploying, change FROM_EMAIL below to an address on a
-   domain you've verified with Resend (see SETUP.md). Sending will fail
-   until that's a real, verified sender.
+   IMPORTANT — before deploying, change GMAIL_ADDRESS below to the Gmail
+   address you generated an App Password for (see SETUP.md). Sending will
+   fail until that's a real Gmail account with an App Password set as the
+   GMAIL_APP_PASSWORD secret.
    ============================================================================ */
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -19,15 +20,14 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 const db = admin.firestore();
 
-const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
+const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
 
-// TODO: replace with a "from" address on a domain you've verified in Resend.
-const FROM_EMAIL = "Terra Foods Reports <reports@yourdomain.com>";
+const GMAIL_ADDRESS = "reports.terrafoods@gmail.com";
 
 // Inferred from the app's existing en-IN / ₹ formatting throughout app.js.
 // Change this if the business is actually based elsewhere.
@@ -162,7 +162,7 @@ async function buildAllReportAttachments(products, activity){
   ];
   return csvs.map(([name, content])=>({
     filename: `${name}-${stamp}.csv`,
-    content: Buffer.from(content).toString("base64")
+    content: Buffer.from(content, "utf8")
   }));
 }
 
@@ -193,25 +193,33 @@ function summaryHtml(displayName, products){
     </div>`;
 }
 
+let cachedTransporter = null;
+function getTransporter(){
+  if(!cachedTransporter){
+    cachedTransporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: GMAIL_ADDRESS, pass: GMAIL_APP_PASSWORD.value() }
+    });
+  }
+  return cachedTransporter;
+}
+
 async function sendReportEmailTo(email, displayName){
   const { products, activity } = await fetchAllData();
   const attachments = await buildAllReportAttachments(products, activity);
-  const resend = new Resend(RESEND_API_KEY.value());
-  const result = await resend.emails.send({
-    from: FROM_EMAIL,
+  await getTransporter().sendMail({
+    from: `"Terra Foods Reports" <${GMAIL_ADDRESS}>`,
     to: email,
     subject: `Terra Foods — Weekly Report (${new Date().toISOString().slice(0,10)})`,
     html: summaryHtml(displayName, products),
     attachments
   });
-  if(result.error) throw new Error(result.error.message || JSON.stringify(result.error));
-  return result;
 }
 
 /* ============================== the two exported functions ============================== */
 
 exports.sendWeeklyReports = onSchedule(
-  { schedule: "every day 07:00", timeZone: TIMEZONE, secrets: [RESEND_API_KEY] },
+  { schedule: "every day 07:00", timeZone: TIMEZONE, secrets: [GMAIL_APP_PASSWORD] },
   async () => {
     const today = todayDayName(TIMEZONE);
     const snap = await db.collection("users").where("role", "==", "admin").get();
@@ -232,7 +240,7 @@ exports.sendWeeklyReports = onSchedule(
   }
 );
 
-exports.sendTestReportEmail = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+exports.sendTestReportEmail = onCall({ secrets: [GMAIL_APP_PASSWORD] }, async (request) => {
   if(!request.auth) throw new HttpsError("unauthenticated", "You must be signed in.");
   const callerDoc = await db.collection("users").doc(request.auth.uid).get();
   if(!callerDoc.exists || callerDoc.data().role !== "admin"){

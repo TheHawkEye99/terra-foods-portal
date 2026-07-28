@@ -122,10 +122,17 @@ can email you on a schedule from just a browser tab. That means:
 1. Firebase Console → ⚙ (gear) → **Usage and billing** → **Details & settings** → **Modify plan** → choose **Blaze**, add a payment method.
 2. Then set a safety net: Google Cloud Console → **Billing** → **Budgets & alerts** → **Create budget** → set a small threshold (e.g. $1) with an email alert. At the volume this feature runs at (a handful of emails a week, one scheduled check a day), the expected bill is $0/month — this alert just means you'd hear about it immediately if that ever changed.
 
-**9b. Sign up for Resend (the email sender)**
-1. Go to [resend.com](https://resend.com) and create a free account.
-2. Under **Domains**, add and verify a domain you own (it'll give you a couple of DNS records to add wherever your domain is registered). This is required to send to your admins' real addresses — without a verified domain, Resend only lets you send to the address you signed up with. If you don't own a domain, tell me and we'll switch this feature to send via Gmail SMTP instead, which doesn't need domain verification.
-3. Under **API Keys**, create a new key and copy it somewhere safe.
+**9b. Set up a Gmail App Password (the email sender)**
+
+This project sends the weekly emails through a Gmail account using an "App Password" — a 16-character code Google generates specifically for apps like this one, separate from your real Gmail password. No domain needed.
+
+1. Decide which Gmail address will send these (an existing one, or create a new free one dedicated to this, e.g. `terrafoodsreports@gmail.com` — keeping it separate from a personal inbox is a nice-to-have, not required).
+2. That Google account needs **2-Step Verification** turned on first (required for App Passwords to even appear as an option): [myaccount.google.com/security](https://myaccount.google.com/security) → **2-Step Verification** → follow the prompts if it's not already on.
+3. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (sign in if asked).
+4. Enter a name like "Terra Foods Reports" → **Create**.
+5. Google shows you a 16-character password — copy it now (spaces don't matter, it works with or without them). You won't be able to see it again after closing this screen.
+
+*(If this is a Google Workspace/business account rather than a personal @gmail.com one, your organization's admin may have App Passwords turned off by policy — if the option doesn't appear, use a personal @gmail.com account instead.)*
 
 **9c. Install the tools and connect this project**
 
@@ -136,17 +143,17 @@ firebase login
 firebase use terra-foods-portal-c567a
 ```
 
-**9d. Store your Resend key as a secret** (never put this in any file — it's a real secret, unlike `firebase-config.js`):
+**9d. Store the App Password as a secret** (never put this in any file — it's a real secret, unlike `firebase-config.js`):
 ```
-firebase functions:secrets:set RESEND_API_KEY
+firebase functions:secrets:set GMAIL_APP_PASSWORD
 ```
-Paste the key from step 9b when prompted.
+Paste the 16-character password from step 9b when prompted.
 
 **9e. Set your sending address**
 
-Open `functions/index.js` and change the `FROM_EMAIL` line near the top to an address on the domain you verified in step 9b, e.g.:
+Open `functions/index.js` and change the `GMAIL_ADDRESS` line near the top to the Gmail address from step 9b, e.g.:
 ```js
-const FROM_EMAIL = "Terra Foods Reports <reports@yourdomain.com>";
+const GMAIL_ADDRESS = "terrafoodsreports@gmail.com";
 ```
 
 **9f. Deploy**
@@ -157,9 +164,11 @@ firebase deploy --only functions
 
 **9g. Turn it on**
 
-Each Admin who wants the weekly emails: sidebar → **Weekly email reports** → check "Email me the weekly reports" → pick a day → **Save**. Use **Send me a test now** right away to confirm delivery without waiting for that day to come around (check spam folder the first time, just in case).
+Each Admin who wants the weekly emails: sidebar → **Weekly email reports** → check "Email me the weekly reports" → pick a day → **Save**. Use **Send me a test now** right away to confirm delivery without waiting for that day to come around — the first email from a new sending address quite often lands in spam, so check there too and mark it "Not spam" if so (later ones should then land normally).
 
 Reports are sent daily at 7:00am (India time — change the `TIMEZONE` constant near the top of `functions/index.js` if your business is elsewhere) to whoever's chosen day matches that day. If you ever change `firestore.rules` after this point, you can now publish it with `firebase deploy --only firestore:rules` instead of copy-pasting into the Console, since this project is now wired up for the Firebase CLI.
+
+Gmail caps regular accounts at ~500 recipients/day — nowhere near what this feature uses (a handful of emails a week), so this limit is essentially never a concern here.
 
 ---
 

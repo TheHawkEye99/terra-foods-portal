@@ -101,6 +101,7 @@
     </nav>
     <div class="side-foot">
       <div class="sync-indicator"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">Connecting…</span></div>
+      <button class="linklike" id="weeklyReportBtn" data-roles="admin">Weekly email reports</button>
       <button class="linklike" id="changePasswordBtn">Change password</button>
       <button class="linklike" id="logoutBtn">Sign out</button>
     </div>
@@ -510,6 +511,35 @@
     <div class="modal-actions">
       <button class="btn secondary" id="changePasswordCancel">Cancel</button>
       <button class="btn" id="changePasswordSave">Update password</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="weeklyReportModal">
+  <div class="modal-box">
+    <h3>Weekly Email Reports</h3>
+    <p>Get all 6 reports emailed to you as CSV attachments, once a week, on whichever day you pick.</p>
+    <label style="display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink); margin-top:14px; cursor:pointer;">
+      <input type="checkbox" id="weeklyReportOptIn" style="width:auto;">
+      Email me the weekly reports
+    </label>
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:14px 0 5px;">Day of week</label>
+    <select id="weeklyReportDay">
+      <option value="sunday">Sunday</option>
+      <option value="monday">Monday</option>
+      <option value="tuesday">Tuesday</option>
+      <option value="wednesday">Wednesday</option>
+      <option value="thursday">Thursday</option>
+      <option value="friday">Friday</option>
+      <option value="saturday">Saturday</option>
+    </select>
+    <div class="flash" id="weeklyReportFlash"></div>
+    <div class="modal-actions" style="justify-content:space-between; flex-wrap:wrap; row-gap:10px;">
+      <button class="btn secondary" id="sendTestReportBtn">Send me a test now</button>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn secondary" id="weeklyReportCancel">Cancel</button>
+        <button class="btn" id="weeklyReportSave">Save</button>
+      </div>
     </div>
   </div>
 </div>

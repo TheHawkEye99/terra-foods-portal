@@ -901,6 +901,8 @@ function renderProductsTable(){
       <td class="name-cell">${escapeHtml(p.name)}</td>
       <td class="name-cell">${escapeHtml(p.pack||"")}</td>
       <td class="right">${fmtNum(p.stock)}</td>
+      <td class="right">${fmtNum(p.purchaseTotal)}</td>
+      <td class="right">${fmtNum(p.salesTotal)}</td>
       <td class="right">${editable ? `<input type="number" class="edit-cell field-cost" min="0" step="0.01" value="${p.cost}">` : fmtMoney(p.cost)}</td>
       <td class="right">${editable ? `<input type="number" class="edit-cell field-price" min="0" step="0.01" value="${p.price}">` : fmtMoney(p.price)}</td>
       <td class="right">${editable ? `<input type="number" class="edit-cell field-threshold" min="0" step="1" value="${p.reorderThreshold}">` : fmtNum(p.reorderThreshold)}</td>

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terra Foods — Stock &amp; Expiry Portal</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN SCREEN
+     ============================================================ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="brand">
+      <img src="logo.png" alt="Terra Foods">
+      <h1>Terra Foods Portal</h1>
+      <p>Stock &amp; expiry tracking, live across your whole team.</p>
+    </div>
+    <form id="loginForm" autocomplete="on">
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" required autocomplete="username" placeholder="you@terrafoods.com">
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••">
+      <button type="submit" class="btn" id="loginSubmitBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        Sign in
+      </button>
+    </form>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-hint">Accounts are created for you by an Admin or Manager. Forgotten password? Ask them to reset it from the Users tab.</div>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP SHELL (hidden until signed in)
+     ============================================================ -->
+<div id="appShell" class="hidden">
+
+  <div class="sidebar-scrim" id="sidebarScrim"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand">
+      <img src="logo.png" alt="">
+      <div>
+        <div class="name">Terra Foods</div>
+        <div class="role" id="sideRoleLabel">—</div>
+      </div>
+    </div>
+    <nav id="sideNav">
+      <button class="nav-item active" data-view="dashboard" data-roles="admin,manager,staff,viewer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+        Dashboard
+      </button>
+      <div class="nav-group-label">Catalog</div>
+      <button class="nav-item" data-view="products" data-roles="admin,manager,staff,viewer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M3 11h18"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Products
+      </button>
+      <button class="nav-item" data-view="add-product" data-roles="admin,manager">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
+        Add Product
+      </button>
+      <div class="nav-group-label">Daily Entry</div>
+      <button class="nav-item" data-view="record-sale" data-roles="admin,manager,staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6"/></svg>
+        Record Sale
+      </button>
+      <button class="nav-item" data-view="record-purchase" data-roles="admin,manager,staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l2-4h14l2 4"/><rect x="3" y="7" width="18" height="14" rx="1"/><path d="M3 11h18"/></svg>
+        Record Purchase
+      </button>
+      <button class="nav-item" data-view="adjustments" data-roles="admin,manager,staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h6"/><circle cx="18" cy="6" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>
+        Adjustments
+      </button>
+      <button class="nav-item" data-view="expiry" data-roles="admin,manager,staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+        Update Expiry Dates
+      </button>
+      <div class="nav-group-label">Directory</div>
+      <button class="nav-item" data-view="parties" data-roles="admin,manager">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="9" r="2.6"/><path d="M15.7 13.4A5.5 5.5 0 0 1 21.5 19"/></svg>
+        Clients &amp; Suppliers
+      </button>
+      <button class="nav-item" data-view="reports" data-roles="admin,manager,viewer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        Reports
+      </button>
+      <div class="nav-group-label">Administration</div>
+      <button class="nav-item" data-view="users" data-roles="admin,manager">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </button>
+      <button class="nav-item" data-view="settings" data-roles="admin,manager">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        Backup &amp; Settings
+      </button>
+    </nav>
+    <div class="side-foot">
+      <div class="sync-indicator"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">Connecting…</span></div>
+      <button class="linklike" id="changePasswordBtn">Change password</button>
+      <button class="linklike" id="logoutBtn">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="mobile-topbar">
+      <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="brand"><img src="logo.png" alt="" style="height:22px;width:22px;border-radius:50%;background:#fff;"> Terra Foods</div>
+      <span style="width:22px;"></span>
+    </div>
+
+    <div class="topbar">
+      <h2 class="page-title" id="pageTitle">Dashboard</h2>
+      <div class="topbar-right">
+        <span id="currentUserLabel" class="mono" style="font-size:12.5px;color:var(--ink-soft);"></span>
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="content-inner">
+
+      <!-- ============================== DASHBOARD ============================== -->
+      <section class="view active" id="view-dashboard" data-roles="admin,manager,staff,viewer">
+        <div class="tape" id="tapeStrip"></div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <div class="two-col">
+          <div class="panel">
+            <h2>Top Selling Products <span class="hint" id="topSellingHint">all-time</span></h2>
+            <div class="searchbar" style="margin-bottom:12px;">
+              <select id="topSellingMonth" style="max-width:220px;"><option value="">All-time</option></select>
+            </div>
+            <div id="topSellingChart"></div>
+          </div>
+          <div class="panel">
+            <h2>Reorder Alerts</h2>
+            <div id="reorderAlertsPanel"></div>
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="panel">
+            <h2>Expiring Soon / Overdue</h2>
+            <div id="expiryAlertsPanel"></div>
+          </div>
+          <div class="panel">
+            <h2>Top Customers</h2>
+            <div id="topCustomersPanel"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Recent Activity <span class="hint">newest first — shows who made each change</span></h2>
+          <div class="table-scroll"><table id="activityFeedTable"><thead><tr>
+            <th class="no-sort">When</th><th class="no-sort">By</th><th class="no-sort">Type</th><th class="no-sort">Product</th><th class="no-sort">Qty</th><th class="no-sort">Note</th><th class="no-sort"></th>
+          </tr></thead><tbody id="activityFeedBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============================== PRODUCTS ============================== -->
+      <section class="view" id="view-products" data-roles="admin,manager,staff,viewer">
+        <div class="panel">
+          <h2>Products <span class="hint" id="productsEditHint"></span></h2>
+          <div class="searchbar">
+            <input type="text" id="productSearch" placeholder="Search by name or pack…">
+          </div>
+          <div class="status-filter-group" style="margin-bottom:14px;">
+            <label class="status-check"><input type="checkbox" class="statusFilterCheck" value="ok" checked> OK</label>
+            <label class="status-check"><input type="checkbox" class="statusFilterCheck" value="low" checked> Low</label>
+            <label class="status-check"><input type="checkbox" class="statusFilterCheck" value="out" checked> Out</label>
+          </div>
+          <div class="table-scroll"><table id="productsTable"><thead><tr>
+            <th data-key="name">Product</th><th data-key="pack">Pack</th><th data-key="stock" class="right">Stock</th>
+            <th data-key="cost" class="right">Cost</th><th data-key="price" class="right">Price</th>
+            <th data-key="reorderThreshold" class="right">Reorder At</th><th class="no-sort">Status</th><th class="no-sort"></th>
+          </tr></thead><tbody id="productTbody"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============================== ADD PRODUCT ============================== -->
+      <section class="view" id="view-add-product" data-roles="admin,manager">
+        <div class="panel">
+          <h2>Add a New Product</h2>
+          <div class="flash" id="addProductFlash"></div>
+          <form class="entry" id="addProductForm">
+            <label for="npName">Product name</label>
+            <input type="text" id="npName" required>
+            <label for="npPack">Pack size (optional)</label>
+            <input type="text" id="npPack" placeholder='e.g. 12*450g'>
+            <div class="form-grid">
+              <div><label for="npCost">Cost price</label><input type="number" id="npCost" min="0" step="0.01" required></div>
+              <div><label for="npPrice">Selling price</label><input type="number" id="npPrice" min="0" step="0.01" required></div>
+            </div>
+            <div class="form-grid">
+              <div><label for="npGst">GST %</label><input type="number" id="npGst" min="0" step="0.01" value="5"></div>
+              <div><label for="npThreshold">Reorder threshold</label><input type="number" id="npThreshold" min="0" step="1" value="50"></div>
+            </div>
+            <button type="submit" class="btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Add product
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============================== RECORD SALE ============================== -->
+      <section class="view" id="view-record-sale" data-roles="admin,manager,staff">
+        <div class="panel">
+          <h2>Record a Sale</h2>
+          <div class="flash" id="saleFlash"></div>
+          <form class="entry" id="saleForm">
+            <label for="saleProduct">Product</label>
+            <select id="saleProduct" required></select>
+            <div class="form-grid">
+              <div><label for="saleQty">Quantity</label><input type="number" id="saleQty" min="1" step="1" required></div>
+              <div><label for="salePrice">Unit price</label><input type="number" id="salePrice" min="0" step="0.01" required></div>
+            </div>
+            <div class="form-grid">
+              <div><label for="saleParty">Client (optional — walk-in if blank)</label>
+                <input type="text" id="saleParty" list="clientsList" placeholder="Type to search or add new…"></div>
+              <div><label for="saleDate">Date</label><input type="date" id="saleDate" required></div>
+            </div>
+            <label for="saleNote">Note (optional)</label>
+            <input type="text" id="saleNote">
+            <button type="submit" class="btn spice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              Record sale
+            </button>
+            <div class="preview-box hidden" id="salePreview"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============================== RECORD PURCHASE ============================== -->
+      <section class="view" id="view-record-purchase" data-roles="admin,manager,staff">
+        <div class="panel">
+          <h2>Record a Purchase</h2>
+          <div class="flash" id="purchaseFlash"></div>
+          <form class="entry" id="purchaseForm">
+            <label for="purchaseProduct">Product</label>
+            <select id="purchaseProduct" required></select>
+            <div class="form-grid">
+              <div><label for="purchaseQty">Quantity</label><input type="number" id="purchaseQty" min="1" step="1" required></div>
+              <div><label for="purchasePrice">Unit cost</label><input type="number" id="purchasePrice" min="0" step="0.01" required></div>
+            </div>
+            <div class="form-grid">
+              <div><label for="purchaseVendor">Supplier (optional)</label>
+                <input type="text" id="purchaseVendor" list="suppliersList" placeholder="Type to search or add new…"></div>
+              <div><label for="purchaseDate">Date received</label><input type="date" id="purchaseDate" required></div>
+            </div>
+            <label for="purchaseExpiry">Expiry date for this batch</label>
+            <input type="date" id="purchaseExpiry">
+            <label for="purchaseNote">Note (optional)</label>
+            <input type="text" id="purchaseNote">
+            <button type="submit" class="btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              Record purchase
+            </button>
+            <div class="preview-box hidden" id="purchasePreview"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============================== ADJUSTMENTS ============================== -->
+      <section class="view" id="view-adjustments" data-roles="admin,manager,staff">
+        <div class="panel">
+          <h2>Stock Adjustment</h2>
+          <p class="note">Use this for damage, expired write-offs, or free vendor samples received.</p>
+          <div class="flash" id="adjustFlash"></div>
+          <form class="entry" id="adjustForm">
+            <label for="adjustType">Adjustment type</label>
+            <select id="adjustType">
+              <option value="damage">Damage</option>
+              <option value="expired">Expired write-off</option>
+              <option value="sample">Sample received (adds stock)</option>
+            </select>
+            <label for="adjustProduct">Product</label>
+            <select id="adjustProduct" required></select>
+            <div class="form-grid">
+              <div><label for="adjustQty">Quantity</label><input type="number" id="adjustQty" min="1" step="1" required></div>
+              <div><label for="adjustDate">Date</label><input type="date" id="adjustDate" required></div>
+            </div>
+            <label for="adjustNote">Note (optional)</label>
+            <input type="text" id="adjustNote">
+            <button type="submit" class="btn secondary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+              Save adjustment
+            </button>
+            <div class="preview-box hidden" id="adjustPreview"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============================== UPDATE EXPIRY DATES (kept as its own distinct screen) ============================== -->
+      <section class="view" id="view-expiry" data-roles="admin,manager,staff">
+        <div class="banner">
+          This is a single-purpose sheet just for expiry dates — no prices, sales, or stock changes here. Fill in a date for each batch and it saves instantly, live, for everyone.
+        </div>
+        <div class="panel">
+          <h2>Update Expiry Dates</h2>
+          <div class="searchbar">
+            <input type="text" id="expirySearch" placeholder="Search products…">
+          </div>
+          <div class="expiry-progress-wrap">
+            <span id="expiryProgressLabel" class="mono">0 of 0 batches have a real expiry date</span>
+            <div class="expiry-progress-bar"><div class="expiry-progress-fill" id="expiryProgressFill"></div></div>
+          </div>
+          <div class="table-scroll"><table id="expiryTable"><thead><tr>
+            <th class="no-sort">Product</th><th class="no-sort">Pack</th><th class="no-sort right">Batch Qty</th><th class="no-sort">Expiry Date</th>
+          </tr></thead><tbody id="expiryTbody"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============================== CLIENTS & SUPPLIERS ============================== -->
+      <section class="view" id="view-parties" data-roles="admin,manager">
+        <div class="two-col">
+          <div class="panel">
+            <h2>Clients</h2>
+            <form id="clientForm" style="display:flex; gap:8px; margin-bottom:14px;">
+              <input type="text" id="newClientName" placeholder="New client name" style="flex:1;">
+              <button type="submit" class="btn small">Add</button>
+            </form>
+            <div class="table-scroll"><table><thead><tr><th>Name</th><th class="no-sort"></th></tr></thead><tbody id="clientsTbody"></tbody></table></div>
+          </div>
+          <div class="panel">
+            <h2>Suppliers</h2>
+            <form id="supplierForm" style="display:flex; gap:8px; margin-bottom:14px;">
+              <input type="text" id="newSupplierName" placeholder="New supplier name" style="flex:1;">
+              <button type="submit" class="btn small">Add</button>
+            </form>
+            <div class="table-scroll"><table><thead><tr><th>Name</th><th class="no-sort"></th></tr></thead><tbody id="suppliersTbody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================== REPORTS ============================== -->
+      <section class="view" id="view-reports" data-roles="admin,manager,viewer">
+        <div class="panel"><h2>Stock Value Report <span class="hint">quantity &amp; value on hand, priced at highest-ever cost</span></h2>
+          <button class="btn small secondary" data-report="stockValue">View</button>
+          <button class="btn small" data-report-csv="stockValue">Download CSV</button>
+          <div class="table-scroll" id="report-stockValue"></div>
+        </div>
+        <div class="panel"><h2>Price List &amp; Margins</h2>
+          <button class="btn small secondary" data-report="priceList">View</button>
+          <button class="btn small" data-report-csv="priceList">Download CSV</button>
+          <div class="table-scroll" id="report-priceList"></div>
+        </div>
+        <div class="panel"><h2>Sales Report <span class="hint">month-wise, with drill-down</span></h2>
+          <button class="btn small secondary" data-report="sales">View</button>
+          <select id="salesMonthDrilldown" style="max-width:200px; display:none;"></select>
+          <div class="table-scroll" id="report-sales"></div>
+        </div>
+        <div class="panel"><h2>Items to Reorder</h2>
+          <button class="btn small secondary" data-report="reorder">View</button>
+          <button class="btn small" data-report-csv="reorder">Download CSV</button>
+          <div class="table-scroll" id="report-reorder"></div>
+        </div>
+        <div class="panel"><h2>Expiring Soon / Overdue</h2>
+          <button class="btn small secondary" data-report="expiry">View</button>
+          <button class="btn small" data-report-csv="expiry">Download CSV</button>
+          <div class="table-scroll" id="report-expiry"></div>
+        </div>
+        <div class="panel"><h2>Sales &amp; Purchases by Date / Party</h2>
+          <div class="form-grid" style="margin-bottom:10px;">
+            <div><label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">From</label><input type="date" id="ledgerFrom"></div>
+            <div><label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">To</label><input type="date" id="ledgerTo"></div>
+          </div>
+          <div class="form-grid" style="margin-bottom:10px;">
+            <div><input type="text" id="ledgerClient" placeholder="Filter by client (optional)" list="clientsList"></div>
+            <div><input type="text" id="ledgerSupplier" placeholder="Filter by supplier (optional)" list="suppliersList"></div>
+          </div>
+          <button class="btn small secondary" data-report="ledger">View</button>
+          <button class="btn small" data-report-csv="ledger">Download CSV</button>
+          <div class="table-scroll" id="report-ledger"></div>
+        </div>
+      </section>
+
+      <!-- ============================== USERS ============================== -->
+      <section class="view" id="view-users" data-roles="admin,manager">
+        <div class="panel">
+          <h2>Team Members <span class="hint" id="usersHint"></span></h2>
+          <button class="btn small" id="openAddUserBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add team member
+          </button>
+          <div class="table-scroll" style="margin-top:16px;"><table id="usersTable"><thead><tr>
+            <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th class="no-sort"></th>
+          </tr></thead><tbody id="usersTbody"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============================== BACKUP & SETTINGS ============================== -->
+      <section class="view" id="view-settings" data-roles="admin,manager">
+        <div class="panel">
+          <h2>Download Your Data <span class="hint">plain spreadsheet files — open directly in Excel or Google Sheets</span></h2>
+          <div class="data-actions">
+            <button class="btn secondary" id="exportProductsCsv">Download Products (CSV)</button>
+            <button class="btn secondary" id="exportActivityCsv">Download Activity Log (CSV)</button>
+            <button class="btn secondary" id="exportPartiesCsv">Download Clients &amp; Suppliers (CSV)</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Import Products from a Spreadsheet</h2>
+          <p class="note">Upload a CSV with columns: name, pack, cost, price, gst, reorderThreshold, stock. The stock column is optional — leave it blank for a row to leave that product's current stock exactly as it is. Matching product names are updated; new names are added. Nothing else is touched.</p>
+          <input type="file" accept=".csv" id="importProductsCsvInput">
+          <div class="import-preview hidden" id="importPreview"></div>
+          <button class="btn" id="confirmImportBtn" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            Confirm upload
+          </button>
+          <div class="expiry-progress-wrap hidden" id="importProgressWrap">
+            <span id="importProgressLabel" class="mono">Preparing…</span>
+            <div class="expiry-progress-bar"><div class="expiry-progress-fill" id="importProgressFill"></div></div>
+          </div>
+          <div class="flash" id="importFlash"></div>
+          <div id="importErrorList"></div>
+        </div>
+        <div class="panel">
+          <h2>Bulk-Set Reorder Threshold</h2>
+          <p class="note">Set the same "reorder at" quantity across every product in one click.</p>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="number" id="bulkThreshold" min="0" step="1" style="max-width:140px;" value="50">
+            <button class="btn small secondary" id="applyBulkThreshold">Apply to all products</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Danger Zone</h2>
+          <p class="note">Resets the product catalog, clients, and suppliers for everyone. There is no undo. (Admins additionally clear the activity/sales history — deleting ledger history is Admin-only, same as deleting a single entry.)</p>
+          <button class="btn danger" id="wipeAllDataBtn">Wipe data</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<datalist id="clientsList"></datalist>
+<datalist id="suppliersList"></datalist>
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="confirmModalTitle">Are you sure?</h3>
+    <p id="confirmModalBody"></p>
+    <input type="text" id="confirmTypeInput" class="confirm-type-box hidden" placeholder="Type to confirm">
+    <div class="modal-actions">
+      <button class="btn secondary" id="confirmModalCancel">Cancel</button>
+      <button class="btn danger" id="confirmModalOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modifyProductModal">
+  <div class="modal-box">
+    <h3>Correct Totals</h3>
+    <p>Adjust the all-time purchase/sales totals for <strong id="modifyProductName"></strong>. Stock recalculates as Purchase − Sales − Damage − Expired + Sample.</p>
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Total purchased</label>
+    <input type="number" id="modifyPurchase" min="0">
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Total sold</label>
+    <input type="number" id="modifySales" min="0">
+    <div class="modal-actions">
+      <button class="btn secondary" id="modifyProductCancel">Cancel</button>
+      <button class="btn" id="modifyProductSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="renamePartyModal">
+  <div class="modal-box">
+    <h3 id="renamePartyTitle">Rename</h3>
+    <input type="text" id="renamePartyInput">
+    <div class="modal-actions">
+      <button class="btn secondary" id="renamePartyCancel">Cancel</button>
+      <button class="btn" id="renamePartySave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="userModal">
+  <div class="modal-box">
+    <h3 id="userModalTitle">Add Team Member</h3>
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Full name</label>
+    <input type="text" id="userModalName">
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Email</label>
+    <input type="email" id="userModalEmail">
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Temporary password</label>
+    <input type="text" id="userModalPassword" placeholder="At least 6 characters">
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Role</label>
+    <select id="userModalRole"></select>
+    <p class="note" style="margin-top:10px;">Share the email and temporary password with them directly — they should change it after signing in.</p>
+    <div class="modal-actions">
+      <button class="btn secondary" id="userModalCancel">Cancel</button>
+      <button class="btn" id="userModalSave">Create account</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="changePasswordModal">
+  <div class="modal-box">
+    <h3>Change Password</h3>
+    <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">New password</label>
+    <input type="password" id="newPasswordInput" placeholder="At least 6 characters">
+    <div class="modal-actions">
+      <button class="btn secondary" id="changePasswordCancel">Cancel</button>
+      <button class="btn" id="changePasswordSave">Update password</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastStack"></div>
+
+<script src="firebase-config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

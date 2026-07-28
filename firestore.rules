@@ -1,0 +1,102 @@
+rules_version = '2';
+
+/* ============================================================
+   Terra Foods Portal — Firestore Security Rules
+
+   Paste this whole file into: Firebase Console → your project
+   → Firestore Database → Rules tab → replace everything → Publish.
+
+   These rules are the REAL enforcement of who can do what — the
+   app's own screens already hide buttons people shouldn't see,
+   but these rules make sure the restriction holds even if someone
+   tried to bypass the app entirely. Keep this in sync with the
+   permission matrix in SETUP.md if you ever change roles.
+   ============================================================ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+
+    function userRole() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() { return userRole() == 'admin'; }
+    function isManager() { return userRole() == 'manager'; }
+    function isStaff() { return userRole() == 'staff'; }
+    function isAdminOrManager() { return isAdmin() || isManager(); }
+    // anyone who is allowed to create day-to-day entries (everyone except Viewer)
+    function isEntryRole() { return userRole() in ['admin','manager','staff']; }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    /* ---------------- users ---------------- */
+    match /users/{uid} {
+      // Anyone signed in can read their OWN profile (needed right after login to learn
+      // their role). Admin/Manager can read the whole list for the Users tab.
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdminOrManager());
+
+      // Admin can create any role. Manager can only create Staff accounts.
+      allow create: if isAdmin() || (isManager() && request.resource.data.role == 'staff');
+
+      // Admin can edit anyone. Manager can only edit an account that is (and stays) Staff
+      // — e.g. toggling `active`, never promoting someone to Manager/Admin.
+      allow update: if isAdmin() ||
+        (isManager() && resource.data.role == 'staff' && request.resource.data.role == 'staff');
+
+      // Admin can delete/deactivate any account. Manager can only delete Staff accounts.
+      allow delete: if isAdmin() || (isManager() && resource.data.role == 'staff');
+    }
+
+    /* ---------------- products ---------------- */
+    match /products/{id} {
+      allow read: if isSignedIn();
+      allow create: if isAdminOrManager();
+
+      // Admin can change anything. Manager can change anything except the `archived`
+      // flag (deleting/archiving a product is Admin-only). Staff can only touch the
+      // fields that day-to-day stock transactions (sale/purchase/adjustment) update —
+      // never cost, price, name, or reorderThreshold.
+      allow update: if isAdmin() ||
+        (isManager() && !changedKeys().hasAny(['archived'])) ||
+        (isStaff() && changedKeys().hasOnly([
+          'stock','batches','purchaseTotal','salesTotal','damageTotal','expiredTotal',
+          'sampleTotal','maxCost','updatedAt','updatedBy'
+        ]));
+
+      // Real deletes only happen via the admin/manager "wipe data" tool.
+      // The per-product "Delete" button in the UI uses archived:true (an update, above),
+      // and that is Admin-only.
+      allow delete: if isAdminOrManager();
+    }
+
+    /* ---------------- activity (the ledger) ---------------- */
+    match /activity/{id} {
+      allow read: if isSignedIn();
+      allow create: if isEntryRole();
+      allow update: if false; // the ledger is immutable — corrections happen via a new entry
+      // Deleting a ledger entry ("Undo") is Admin-only, with no exception — this is the
+      // one action the business explicitly wants restricted to Admin no matter what.
+      allow delete: if isAdmin();
+    }
+
+    /* ---------------- clients / suppliers ---------------- */
+    match /clients/{id} {
+      allow read: if isSignedIn();
+      allow create: if isEntryRole(); // Staff can add a new client name inline while recording a sale
+      allow update: if isAdmin() || (isManager() && !changedKeys().hasAny(['active']));
+      allow delete: if isAdminOrManager(); // only reachable via the admin/manager "wipe data" tool
+    }
+    match /suppliers/{id} {
+      allow read: if isSignedIn();
+      allow create: if isEntryRole();
+      allow update: if isAdmin() || (isManager() && !changedKeys().hasAny(['active']));
+      allow delete: if isAdminOrManager();
+    }
+  }
+}

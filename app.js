@@ -686,14 +686,40 @@ function renderTopSelling(){
   });
 }
 
+let reorderAlertsSort = { key:"stock", dir:1 };
+
 function renderReorderAlerts(){
-  const rows = activeProducts().filter(p=>(p.stock||0) <= (p.reorderThreshold||0))
-    .sort((a,b)=>(a.stock||0)-(b.stock||0)).slice(0,8);
   const panel = document.getElementById("reorderAlertsPanel");
-  if(!rows.length){ panel.innerHTML = '<p class="note" style="margin:0;">Nothing needs reordering right now.</p>'; return; }
-  panel.innerHTML = `<table><thead><tr><th>Product</th><th class="right">Stock</th><th class="right">Reorder At</th><th class="no-sort"></th></tr></thead><tbody>` +
+  const all = activeProducts().filter(p=>(p.stock||0) <= (p.reorderThreshold||0));
+  if(!all.length){ panel.innerHTML = '<p class="note" style="margin:0;">Nothing needs reordering right now.</p>'; return; }
+
+  all.sort((a,b)=>{
+    const key = reorderAlertsSort.key;
+    const av = key==="name" ? a.name : (a[key]||0);
+    const bv = key==="name" ? b.name : (b[key]||0);
+    const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
+    return cmp * reorderAlertsSort.dir;
+  });
+  const rows = all.slice(0,8);
+  const arrow = (key)=> reorderAlertsSort.key===key ? (reorderAlertsSort.dir===1 ? " ▲" : " ▼") : "";
+
+  panel.innerHTML = `<table><thead><tr>
+      <th data-key="name">Product${arrow("name")}</th>
+      <th data-key="stock" class="right">Stock${arrow("stock")}</th>
+      <th data-key="reorderThreshold" class="right">Reorder At${arrow("reorderThreshold")}</th>
+      <th class="no-sort"></th>
+    </tr></thead><tbody>` +
     rows.map(p=>`<tr><td class="name-cell">${escapeHtml(p.name)}</td><td class="right">${fmtNum(p.stock)}</td><td class="right">${fmtNum(p.reorderThreshold)}</td><td>${statusTag(itemStatus(p))}</td></tr>`).join("") +
-    `</tbody></table>`;
+    `</tbody></table>` +
+    (all.length>8 ? `<p class="note" style="margin:8px 0 0;">Showing ${rows.length} of ${all.length} — click a column to re-sort, or see Reports → Items to Reorder for the full list.</p>` : "");
+
+  panel.querySelectorAll("th[data-key]").forEach(th=>{
+    th.addEventListener("click", ()=>{
+      const key = th.dataset.key;
+      if(reorderAlertsSort.key === key) reorderAlertsSort.dir *= -1; else { reorderAlertsSort.key = key; reorderAlertsSort.dir = 1; }
+      renderReorderAlerts();
+    });
+  });
 }
 
 function renderExpiryAlerts(expiryStats){
@@ -1379,7 +1405,23 @@ function downloadReportCsv(key){
   downloadText(`terra-foods-${key}-${todayISO()}.csv`, csv);
 }
 
-document.querySelectorAll("[data-report]").forEach(btn=>btn.addEventListener("click", ()=>renderReport(btn.dataset.report)));
+const reportShowing = {}; // key -> boolean, tracks whether each report's "View" is currently expanded
+
+function toggleReport(key){
+  const btn = document.querySelector(`[data-report="${key}"]`);
+  if(reportShowing[key]){
+    document.getElementById("report-"+key).innerHTML = "";
+    if(key === "sales") document.getElementById("salesMonthDrilldown").style.display = "none";
+    reportShowing[key] = false;
+    if(btn) btn.textContent = "View";
+  } else {
+    renderReport(key);
+    reportShowing[key] = true;
+    if(btn) btn.textContent = "Hide";
+  }
+}
+
+document.querySelectorAll("[data-report]").forEach(btn=>btn.addEventListener("click", ()=>toggleReport(btn.dataset.report)));
 document.querySelectorAll("[data-report-csv]").forEach(btn=>btn.addEventListener("click", ()=>downloadReportCsv(btn.dataset.reportCsv)));
 
 /* ============================== 12. USERS (role-scoped) ============================== */

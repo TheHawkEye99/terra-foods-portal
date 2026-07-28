@@ -84,9 +84,11 @@ function buildStockValueCsv(products){
   const rows = products.map(p=>{
     const cost = p.maxCost || p.cost || 0;
     const value = (p.stock||0) * cost;
-    return [p.name, p.pack||"", p.stock||0, cost, value];
+    const damagedQty = p.damageTotal||0;
+    const sampleQty = p.sampleTotal||0;
+    return [p.name, p.pack||"", p.stock||0, cost, value, damagedQty, sampleQty];
   }).sort((a,b)=>b[4]-a[4]);
-  return toCsv(["Product","Pack","Stock","Cost (highest)","Value"], rows);
+  return toCsv(["Product","Pack","Stock","Cost (highest)","Value","Damaged Qty","Sample Qty"], rows);
 }
 
 function buildPriceListCsv(products){

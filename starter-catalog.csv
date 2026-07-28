@@ -1,69 +1,69 @@
-name,pack,cost,price,gst,reorderThreshold,stock
-ABBIE’S Black Slice Olive 450gm,12*450g,110,145,5,50,0
-ABBIE’S Black Slice Olive 3kg,6*3kg,585,720,5,50,0
-ABBIE’S Green Sliced Olive,12*450g,103,138,5,50,72
-ABBIE’S Pickle Capers in Brine,12*100g,75,82,5,50,0
-Abbie’s Pickle Jalapeno Sliced in Brine A10,12*670g,75,95,5,50,512
-ABBIE’S Djon Mustard,12*370g,125,145,5,50,432
-ABBIE’S Sqeeze Yellow Mustard,12*255g,99,120,5,50,118
-ABBIE'S Sundried tomatoes,12*295g,175,205,5,50,32
-Abbie’s Pomace Olive Oil  1ltr,12*1ltr,436,575,5,50,0
-Abbie’s Pomace Olive Oil  5ltr,4*5ltr,2025,2150,5,50,64
-Sano Pomace Olive,16*1ltr,258,292,5,50,96
-Jivo Extra Virgin Oil,16*1ltr,643,865,5,50,48
-Jivo sesame oil(toasted),500gm,256,160,5,50,8
-ABBIE'S Extra Virgin Olive Oil 1L,,700,930,5,50,0
-Extra Virgin Coconut Oil 1ltr,1ltr,477,570,5,50,0
-Jivo Pomace Olive Oil 1ltr,16*1ltr,324,340,5,50,296
-Jivo Pomace Olive Oil 5ltr,4*5ltr,1620,2075,5,50,56
-ABBIE’S Peeled Tomatoes A9,6*2.5kg,370,440,5,50,959
-Heinz Tomato Ketchup 435gm  (18 pcs one box),435gm,110,123,5,50,450
-Heinz Tomato Ketchup 880gm (12 pcs one box),880gm,115,0,5,50,360
-ABBIE'S Pure Maple Syrup,250ml,455,690,5,50,108
-ABBIE'S Pancake Syrup (B),12*710ml,225,285,5,50,48
-ABBIE'S Jalapeno in Vinegar A-10,12*670g,235,280,5,50,0
-ABBIE'S Gherkins in Vinegar (B),12*720g,70,95,5,50,0
-ABBIE'S BBQ Sauce Classic,12*510g,170,192,5,50,264
-ABBIE'S BBQ Hot Sauce,,125,160,5,50,0
-Green Tea,,1124,0,5,50,9
-Pumpkin seeds,25kg,450,450,5,50,0
-Quinoa seeds 25kg,25kg,100,0,5,50,25
-Flax seeds,25kg,110,150,5,50,0
-SUNFLOWER SEEDS,25kg,160,210,5,50,0
-ABBIE'S Quinoa Seeds,24*500g,125,170,5,50,96
-ABBIE'S Cous Cous,24*500g,80,140,5,50,0
-ABBIE’S Arborio Rice,6*1kg,370,380,5,50,0
-PEACH HALVES IN SYRUP /FRESHOS,820gm,135,155,5,50,0
-Urban Platter Tamari Soy Sauce,500ml,334,450,5,50,24
-BASSO Extra Virgin Olive Oil 1L,12*1ltr,775,930,5,50,0
-BASSO POMACE OLIVE OIL 1L,12*1ltr,450,550,5,50,0
-OIL COCONUT COLD PRESSEDVIRGIN / URBAN MILLS,1ltr,690,870,5,50,0
-Urban Platter Coconut Sugar(Low GI | Natural Sweetener | Refined Sugar Alternative),300g,200,240,5,50,0
-Urban Platter Portuguese Peri Peri Seasoning Mix,1kg,934,1280,5,50,0
+name,pack,cost,price,gst,reorderThreshold,stock,expiryDate
+ABBIE’S Black Slice Olive 450gm,12*450g,110,145,5,50,0,
+ABBIE’S Black Slice Olive 3kg,6*3kg,585,720,5,50,0,
+ABBIE’S Green Sliced Olive,12*450g,103,138,5,50,72,2027-02-22
+ABBIE’S Pickle Capers in Brine,12*100g,75,82,5,50,0,
+Abbie’s Pickle Jalapeno Sliced in Brine A10,12*670g,75,95,5,50,512,2027-05-23
+ABBIE’S Djon Mustard,12*370g,125,145,5,50,432,2027-07-07
+ABBIE’S Sqeeze Yellow Mustard,12*255g,99,120,5,50,118,2027-08-21
+ABBIE'S Sundried tomatoes,12*295g,175,205,5,50,32,2027-10-05
+Abbie’s Pomace Olive Oil  1ltr,12*1ltr,436,575,5,50,0,
+Abbie’s Pomace Olive Oil  5ltr,4*5ltr,2025,2150,5,50,64,2028-01-03
+Sano Pomace Olive,16*1ltr,258,292,5,50,96,2028-02-17
+Jivo Extra Virgin Oil,16*1ltr,643,865,5,50,48,2028-04-02
+Jivo sesame oil(toasted),500gm,256,160,5,50,8,2026-11-24
+ABBIE'S Extra Virgin Olive Oil 1L,,700,930,5,50,0,
+Extra Virgin Coconut Oil 1ltr,1ltr,477,570,5,50,0,
+Jivo Pomace Olive Oil 1ltr,16*1ltr,324,340,5,50,296,2027-04-08
+Jivo Pomace Olive Oil 5ltr,4*5ltr,1620,2075,5,50,56,2027-05-23
+ABBIE’S Peeled Tomatoes A9,6*2.5kg,370,440,5,50,959,2027-07-07
+Heinz Tomato Ketchup 435gm  (18 pcs one box),435gm,110,123,5,50,450,2027-08-21
+Heinz Tomato Ketchup 880gm (12 pcs one box),880gm,115,0,5,50,360,2027-10-05
+ABBIE'S Pure Maple Syrup,250ml,455,690,5,50,108,2027-11-19
+ABBIE'S Pancake Syrup (B),12*710ml,225,285,5,50,48,2028-01-03
+ABBIE'S Jalapeno in Vinegar A-10,12*670g,235,280,5,50,0,
+ABBIE'S Gherkins in Vinegar (B),12*720g,70,95,5,50,0,
+ABBIE'S BBQ Sauce Classic,12*510g,170,192,5,50,264,2026-11-24
+ABBIE'S BBQ Hot Sauce,,125,160,5,50,0,
+Green Tea,,1124,0,5,50,9,2027-02-22
+Pumpkin seeds,25kg,450,450,5,50,0,
+Quinoa seeds 25kg,25kg,100,0,5,50,25,2027-05-23
+Flax seeds,25kg,110,150,5,50,0,
+SUNFLOWER SEEDS,25kg,160,210,5,50,0,
+ABBIE'S Quinoa Seeds,24*500g,125,170,5,50,96,2027-10-05
+ABBIE'S Cous Cous,24*500g,80,140,5,50,0,
+ABBIE’S Arborio Rice,6*1kg,370,380,5,50,0,
+PEACH HALVES IN SYRUP /FRESHOS,820gm,135,155,5,50,0,
+Urban Platter Tamari Soy Sauce,500ml,334,450,5,50,24,2028-04-02
+BASSO Extra Virgin Olive Oil 1L,12*1ltr,775,930,5,50,0,
+BASSO POMACE OLIVE OIL 1L,12*1ltr,450,550,5,50,0,
+OIL COCONUT COLD PRESSEDVIRGIN / URBAN MILLS,1ltr,690,870,5,50,0,
+Urban Platter Coconut Sugar(Low GI | Natural Sweetener | Refined Sugar Alternative),300g,200,240,5,50,0,
+Urban Platter Portuguese Peri Peri Seasoning Mix,1kg,934,1280,5,50,0,
 "Urban Platter Jamaican Jerk Seasoning
- Shaker Jar",80g,94,125,5,50,0
-Organic Sugar GUD SHAKKAR,1kg*300pcs,124,140,5,50,0
-Organic Jaggery powder KHAANDSARI,5kg pkt,324,170,5,50,0
-SAKURA Breadcrumbs 1Kg,15*1kg,92,120,5,50,470
-DE NIGRIS Wine Vinegar White,12*1ltr,130,190,18,50,60
-DE NIGIRS Wine Vinegar Red,12*1ltr,130,190,18,50,60
-Masterchow whole wheat noodle 1kg,1*20kg,130,190,5,50,39
-M C Hakka Noodle 1KG,1kg,104,0,5,50,10
-MORINAGA Tofu Firm,12*307g,200,220,5,50,536
-D.C. Bocconcini 200gm -5%,,640,840,5,50,0
-Zanetti Parmesan Cheese 1/8 -5%,,1350,1450,5,50,0
-Arla -Pizza Grill & Bake Block-5%,,1300,1350,5,50,0
-Parmesan Cheese -5%,,1120,1375,5,50,0
-Orange Blossom Water,500ml,350,400,5,50,0
-New York Style Flour,,0,0,5,50,0
-Sourdough Bread Flour Series C-8714,1*20kg,297,420,5,50,40
-TWF Neapolitan 00 Pizza Flour,1*20kg,71,95,5,50,60
-TWF T55 - Versatile Bread Flour,1*20kg,65,85,5,50,0
-TWF- Maida,,38,39,5,50,0
-TWF Khapli (Emmer) Flour Low Gl,1*20kg,130,198,5,50,0
-TWF Khapli with Millets Flour,1*20kg,169,0,5,50,100
-TWF T65 - Versatile Bread Flour,1*20kg,68,92,5,50,15
-Urban Platter Smoky BBQ Seasoning 1kg,,800,1050,5,50,0
-Autin Black Beans,400gm,65,100,5,50,0
-PREMIUM CHIA SEEDS,,235,435,5,50,25
-XANTHAN GUM- FUFENG 200 MESH,,350,458,5,50,0
+ Shaker Jar",80g,94,125,5,50,0,
+Organic Sugar GUD SHAKKAR,1kg*300pcs,124,140,5,50,0,
+Organic Jaggery powder KHAANDSARI,5kg pkt,324,170,5,50,0,
+SAKURA Breadcrumbs 1Kg,15*1kg,92,120,5,50,470,2027-11-19
+DE NIGRIS Wine Vinegar White,12*1ltr,130,190,18,50,60,2028-01-03
+DE NIGIRS Wine Vinegar Red,12*1ltr,130,190,18,50,60,2028-02-17
+Masterchow whole wheat noodle 1kg,1*20kg,130,190,5,50,39,2028-04-02
+M C Hakka Noodle 1KG,1kg,104,0,5,50,10,2026-11-24
+MORINAGA Tofu Firm,12*307g,200,220,5,50,536,2027-01-08
+D.C. Bocconcini 200gm -5%,,640,840,5,50,0,
+Zanetti Parmesan Cheese 1/8 -5%,,1350,1450,5,50,0,
+Arla -Pizza Grill & Bake Block-5%,,1300,1350,5,50,0,
+Parmesan Cheese -5%,,1120,1375,5,50,0,
+Orange Blossom Water,500ml,350,400,5,50,0,
+New York Style Flour,,0,0,5,50,0,
+Sourdough Bread Flour Series C-8714,1*20kg,297,420,5,50,40,2027-11-19
+TWF Neapolitan 00 Pizza Flour,1*20kg,71,95,5,50,60,2028-01-03
+TWF T55 - Versatile Bread Flour,1*20kg,65,85,5,50,0,
+TWF- Maida,,38,39,5,50,0,
+TWF Khapli (Emmer) Flour Low Gl,1*20kg,130,198,5,50,0,
+TWF Khapli with Millets Flour,1*20kg,169,0,5,50,100,2027-01-08
+TWF T65 - Versatile Bread Flour,1*20kg,68,92,5,50,15,2027-02-22
+Urban Platter Smoky BBQ Seasoning 1kg,,800,1050,5,50,0,
+Autin Black Beans,400gm,65,100,5,50,0,
+PREMIUM CHIA SEEDS,,235,435,5,50,25,2027-07-07
+XANTHAN GUM- FUFENG 200 MESH,,350,458,5,50,0,

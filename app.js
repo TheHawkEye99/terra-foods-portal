@@ -177,7 +177,27 @@ function diffDaysFromToday(dateStr){
   if(!dateStr) return null;
   const today = new Date(); today.setHours(0,0,0,0);
   const d = new Date(dateStr + "T00:00:00");
+  if(isNaN(d.getTime())) return null; // malformed date string — don't silently compare against NaN
   return Math.round((d - today) / 86400000);
+}
+
+// Every expiry date is meant to be stored as ISO (YYYY-MM-DD) — that's what <input type="date">
+// always yields, and it's the only format diffDaysFromToday() understands. A CSV re-exported
+// from Excel/Sheets often re-formats a date column to the locale's short format instead
+// (e.g. "3/31/2026"), which then sits in Firestore looking fine but silently never counts as
+// "expiring soon" since date math on it produces NaN. This normalizes on the way in.
+function normalizeExpiryDate(raw){
+  if(!raw) return raw; // blank stays blank — nothing to normalize
+  const s = String(raw).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+  // M/D/YYYY or MM/DD/YYYY — the common Excel/Sheets CSV export format
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m){
+    const month = m[1].padStart(2,"0"), day = m[2].padStart(2,"0"), year = m[3];
+    const iso = `${year}-${month}-${day}`;
+    return isNaN(new Date(iso+"T00:00:00").getTime()) ? null : iso;
+  }
+  return null; // unrecognized format — caller decides how to handle
 }
 
 /* ============================== 3. AUTH + ROLE GATING ============================== */
@@ -642,6 +662,7 @@ function computeExpiryStats(){
     for(const b of (p.batches||[])){
       if(!b.expiryDate || b.qty<=0) continue;
       const dd = diffDaysFromToday(b.expiryDate);
+      if(dd===null) continue; // malformed/non-ISO date string — can't place it on the timeline, so skip rather than mis-sort it
       if(dd <= EXPIRY_WARNING_DAYS){
         rows.push({ productName:p.name, pack:p.pack, qty:b.qty, expiryDate:b.expiryDate, diffDays:dd,
           status: dd<0 ? "overdue" : "soon" });
@@ -1701,7 +1722,7 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
     flash.className="flash show error"; flash.textContent="The CSV needs at least name, cost, and price columns."; e.target.value=""; return;
   }
 
-  const validRows = [], invalidRows = [], stockWarnings = [];
+  const validRows = [], invalidRows = [], stockWarnings = [], invalidDateRows = [];
   let stockCount = 0;
   rows.slice(1).forEach((r, i)=>{
     const rowNum = i + 2; // +1 to skip header, +1 for 1-indexed human-readable row numbers
@@ -1722,7 +1743,13 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
         if(!isNaN(parsed) && parsed >= 0) stock = parsed;
       }
     }
-    const expiryDate = idx.expiryDate>-1 ? (r[idx.expiryDate]||"").trim() : "";
+    const expiryDateRaw = idx.expiryDate>-1 ? (r[idx.expiryDate]||"").trim() : "";
+    // Normalize to ISO (YYYY-MM-DD) on the way in — a CSV re-exported from Excel/Sheets often
+    // reformats a date column to something like "3/31/2026", which looks fine sitting in
+    // Firestore but silently never counts as "expiring soon" since the app's date math only
+    // understands ISO. Anything unrecognized is treated the same as a missing date below.
+    const expiryDate = expiryDateRaw ? normalizeExpiryDate(expiryDateRaw) : "";
+    const dateUnrecognized = expiryDateRaw && !expiryDate;
 
     // Expiry date is mandatory whenever this row would actually create a NEW batch — i.e.
     // stock>0 and the matching product (new or existing) has no tracked batches yet. If the
@@ -1733,10 +1760,16 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
     const existingProduct = activeProducts().find(p=>p.name.toLowerCase()===name.toLowerCase());
     const willCreateNewBatch = stock !== null && stock > 0 && !(existingProduct && existingProduct.batches && existingProduct.batches.length);
     if(willCreateNewBatch && !expiryDate){
-      stockWarnings.push({ rowNum, name, reason:"has a stock quantity but no expiry date — stock left unchanged, other fields still applied" });
+      stockWarnings.push({ rowNum, name, reason: dateUnrecognized
+        ? `has a stock quantity but its expiry date ("${expiryDateRaw}") isn't in a recognized format — stock left unchanged, other fields still applied`
+        : "has a stock quantity but no expiry date — stock left unchanged, other fields still applied" });
       stock = null;
     } else if(stock !== null){
       stockCount++;
+    } else if(dateUnrecognized){
+      // Date given but not tied to a stock action on this row (blank/unchanged stock) — still
+      // flag it rather than silently dropping what was typed.
+      invalidDateRows.push({ rowNum, name, raw:expiryDateRaw });
     }
 
     validRows.push({
@@ -1762,10 +1795,16 @@ document.getElementById("importProductsCsvInput").addEventListener("change", asy
       (invalidRows.length>10 ? `<li>…and ${invalidRows.length-10} more</li>` : "") + `</ul>`;
   }
   if(stockWarnings.length){
-    html += `<p style="color:var(--mustard); margin:10px 0 0;">⚠ Missing expiry date for ${stockWarnings.length} row${stockWarnings.length===1?"":"s"}:</p>` +
+    html += `<p style="color:var(--mustard); margin:10px 0 0;">⚠ No usable expiry date for ${stockWarnings.length} row${stockWarnings.length===1?"":"s"}:</p>` +
       `<ul style="margin:4px 0 0 18px; padding:0;">` +
       stockWarnings.slice(0,10).map(r=>`<li>Row ${r.rowNum} (${escapeHtml(r.name)}): ${escapeHtml(r.reason)}</li>`).join("") +
       (stockWarnings.length>10 ? `<li>…and ${stockWarnings.length-10} more</li>` : "") + `</ul>`;
+  }
+  if(invalidDateRows.length){
+    html += `<p style="color:var(--mustard); margin:10px 0 0;">⚠ Expiry date not in a recognized format for ${invalidDateRows.length} row${invalidDateRows.length===1?"":"s"} (ignored — no stock change was requested for these rows anyway):</p>` +
+      `<ul style="margin:4px 0 0 18px; padding:0;">` +
+      invalidDateRows.slice(0,10).map(r=>`<li>Row ${r.rowNum} (${escapeHtml(r.name)}): "${escapeHtml(r.raw)}"</li>`).join("") +
+      (invalidDateRows.length>10 ? `<li>…and ${invalidDateRows.length-10} more</li>` : "") + `</ul>`;
   }
   preview.innerHTML = html;
   document.getElementById("confirmImportBtn").style.display = validRows.length ? "inline-flex" : "none";
@@ -1871,6 +1910,70 @@ document.getElementById("confirmImportBtn").addEventListener("click", async ()=>
   document.getElementById("importPreview").classList.add("hidden");
   pendingImport = null;
   setTimeout(()=>{ progressWrap.classList.add("hidden"); }, 1500);
+});
+
+// One-time cleanup for batches that were written before dates were normalized on the way in
+// (e.g. a CSV re-exported from Excel/Sheets with "3/31/2026" instead of "2026-03-31") — those
+// sit in Firestore looking harmless but never register as "expiring soon" since the app's date
+// math only understands ISO. Scans every product (active or archived) and rewrites any batch
+// whose expiryDate isn't already YYYY-MM-DD. Safe to re-run — already-correct dates are skipped.
+document.getElementById("fixExpiryFormatsBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("fixExpiryFormatsBtn");
+  const flash = document.getElementById("fixExpiryFlash");
+  const results = document.getElementById("fixExpiryResults");
+  flash.className = "flash"; results.innerHTML = "";
+  btn.disabled = true;
+  try{
+    const fixes = [], unresolved = [], updates = [];
+    for(const p of products){
+      let changed = false;
+      const newBatches = (p.batches||[]).map(b=>{
+        if(!b.expiryDate || /^\d{4}-\d{2}-\d{2}$/.test(b.expiryDate)) return b; // blank or already ISO
+        const iso = normalizeExpiryDate(b.expiryDate);
+        if(iso){
+          changed = true;
+          fixes.push({ productName:p.name, from:b.expiryDate, to:iso });
+          return { ...b, expiryDate: iso };
+        }
+        unresolved.push({ productName:p.name, raw:b.expiryDate });
+        return b;
+      });
+      if(changed) updates.push({ id:p.id, batches:newBatches });
+    }
+    if(!updates.length && !unresolved.length){
+      flash.className="flash show success";
+      flash.textContent="Nothing to fix — every tracked batch is already in YYYY-MM-DD format.";
+      return;
+    }
+    // Firestore batched writes cap at 500 ops — chunk defensively even though this app's
+    // catalog is nowhere near that size.
+    for(let i=0; i<updates.length; i+=450){
+      const batch = writeBatch(db);
+      updates.slice(i,i+450).forEach(u=>batch.update(doc(db,"products",u.id),
+        { batches:u.batches, updatedAt: serverTimestamp(), updatedBy: currentUser.uid }));
+      await batch.commit();
+    }
+    let html = `<p style="margin:0 0 6px;">Fixed ${fixes.length} batch date${fixes.length===1?"":"s"} across ${updates.length} product${updates.length===1?"":"s"}.</p>`;
+    if(fixes.length){
+      html += `<ul style="margin:0 0 10px 18px; padding:0;">` +
+        fixes.slice(0,15).map(f=>`<li>${escapeHtml(f.productName)}: "${escapeHtml(f.from)}" → ${f.to}</li>`).join("") +
+        (fixes.length>15 ? `<li>…and ${fixes.length-15} more</li>` : "") + `</ul>`;
+    }
+    if(unresolved.length){
+      html += `<p style="color:var(--danger); margin:6px 0 0;">⚠ Couldn't recognize ${unresolved.length} date${unresolved.length===1?"":"s"} — left as-is, needs a manual look:</p>` +
+        `<ul style="margin:4px 0 0 18px; padding:0;">` +
+        unresolved.slice(0,15).map(u=>`<li>${escapeHtml(u.productName)}: "${escapeHtml(u.raw)}"</li>`).join("") +
+        (unresolved.length>15 ? `<li>…and ${unresolved.length-15} more</li>` : "") + `</ul>`;
+    }
+    results.innerHTML = html;
+    flash.className = "flash show success";
+    flash.textContent = "Done — the dashboard and Expiry Dates page reflect this immediately.";
+    toast("success","Expiry date formats fixed.");
+  }catch(err){
+    flash.className="flash show error"; flash.textContent="Couldn't fix expiry dates: "+err.message;
+  }finally{
+    btn.disabled = false;
+  }
 });
 
 document.getElementById("applyBulkThreshold").addEventListener("click", async ()=>{

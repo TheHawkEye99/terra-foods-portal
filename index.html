@@ -433,6 +433,13 @@
           <div id="importErrorList"></div>
         </div>
         <div class="panel">
+          <h2>Fix Expiry Date Formats</h2>
+          <p class="note">Expiry dates should always be stored as YYYY-MM-DD — that's the only format the dashboard's expiry math understands. A CSV re-exported from Excel or Google Sheets can silently reformat that column (e.g. "3/31/2026"), and rows written that way never show up as "expiring soon" even though the date is right there. Run this to scan every product's tracked batches and convert anything not already in that format. Safe to run any time — already-correct dates are left untouched.</p>
+          <button class="btn secondary" id="fixExpiryFormatsBtn">Scan &amp; fix expiry date formats</button>
+          <div class="flash" id="fixExpiryFlash"></div>
+          <div id="fixExpiryResults"></div>
+        </div>
+        <div class="panel">
           <h2>Bulk-Set Reorder Threshold</h2>
           <p class="note">Set the same "reorder at" quantity across every product in one click.</p>
           <div style="display:flex; gap:10px; align-items:center;">

@@ -502,6 +502,7 @@ async function recordAdjustment({adjType, productId, qty, date, note}){
       fields.batches = consumeBatches(p.batches, qty);
       if(adjType === "damage") fields.damageTotal = (p.damageTotal||0) + qty;
       if(adjType === "expired") fields.expiredTotal = (p.expiredTotal||0) + qty;
+      if(adjType === "sampleSent") fields.sampleSentTotal = (p.sampleSentTotal||0) + qty;
     }
     tx.update(productRef, fields);
     tx.set(activityRef, {
@@ -539,6 +540,10 @@ async function undoActivityEntry(entry){
       } else if(entry.type === "sample"){
         fields.stock = (p.stock||0) - entry.qty;
         fields.sampleTotal = Math.max(0, (p.sampleTotal||0) - entry.qty);
+      } else if(entry.type === "sampleSent"){
+        fields.stock = (p.stock||0) + entry.qty;
+        fields.sampleSentTotal = Math.max(0, (p.sampleSentTotal||0) - entry.qty);
+        fields.batches = [...(p.batches||[]), { qty: entry.qty, expiryDate: PLACEHOLDER_DATE, purchaseDate: null }];
       }
       tx.update(productRef, fields);
     }
@@ -626,7 +631,7 @@ function computeTotals(){
     if((p.stock||0) <= (p.reorderThreshold||0)) reorderCount++;
     damagedQty += (p.damageTotal||0);
     damagedValue += (p.damageTotal||0) * maxCost;
-    expiredQty += (p.expiredTotal||0);
+    expiredQty += (p.expiredTotal||0); // historical, all-time — how much has ever been written off as expired (Reports/CSV use this; the dashboard KPI uses live batch data instead, see renderKPIs)
   }
   return { stockValue, salesValue, totalStockQty, reorderCount, damagedQty, damagedValue, expiredQty };
 }
@@ -649,6 +654,20 @@ function computeExpiryStats(){
   return { rows, soonQty, overdueQty };
 }
 
+function computeSampleStats(){
+  const rows = [];
+  let receivedTotal = 0, sentTotal = 0;
+  for(const p of activeProducts()){
+    const received = p.sampleTotal||0;
+    const sent = p.sampleSentTotal||0;
+    receivedTotal += received;
+    sentTotal += sent;
+    if(received>0 || sent>0) rows.push({ productName:p.name, pack:p.pack, received, sent });
+  }
+  rows.sort((a,b)=>(b.received+b.sent)-(a.received+a.sent));
+  return { rows, receivedTotal, sentTotal };
+}
+
 function renderTape(totals){
   const wrap = document.getElementById("tapeStrip");
   wrap.innerHTML = `
@@ -667,25 +686,31 @@ function kpiCard(id, label, value, {warn=false, sub="", money=false} = {}){
   </div>`;
 }
 
-function renderKPIs(totals, expiryStats){
+function renderKPIs(totals, expiryStats, sampleStats){
   const grid = document.getElementById("kpiGrid");
   grid.innerHTML =
     kpiCard("kpiStockQty","Stock Qty on Hand", totals.totalStockQty) +
     kpiCard("kpiStockValue","Stock Value on Hand", totals.stockValue, {money:true}) +
     kpiCard("kpiSalesValue","Sales Value Till Date", totals.salesValue, {money:true}) +
     kpiCard("kpiReorder","Items to Reorder", totals.reorderCount, {warn: totals.reorderCount>0}) +
-    kpiCard("kpiExpiry","Expiring Within 30 Days", expiryStats.soonQty+expiryStats.overdueQty,
-      {warn: (expiryStats.soonQty+expiryStats.overdueQty)>0, sub: expiryStats.overdueQty>0 ? `${fmtNum(expiryStats.overdueQty)} already overdue` : ""}) +
+    kpiCard("kpiExpiry","Expiring Within 30 Days", expiryStats.soonQty, {warn: expiryStats.soonQty>0}) +
     kpiCard("kpiDamaged","Damaged Stock", totals.damagedQty,
       {warn: totals.damagedQty>0, sub: totals.damagedQty>0 ? `worth ${fmtMoney(totals.damagedValue)}` : ""}) +
-    kpiCard("kpiExpired","Expired Stock", totals.expiredQty, {warn: totals.expiredQty>0});
+    // Live count of stock still sitting in inventory past its expiry date — driven straight
+    // off batch expiry dates, same as the "Expiring" card above, so it moves on its own as
+    // dates pass instead of only when someone manually logs an "Expired write-off" adjustment.
+    kpiCard("kpiExpired","Expired Stock (Not Yet Written Off)", expiryStats.overdueQty, {warn: expiryStats.overdueQty>0}) +
+    kpiCard("kpiSamplesReceived","Samples Received", sampleStats.receivedTotal) +
+    kpiCard("kpiSamplesSent","Samples Sent", sampleStats.sentTotal);
   animateCount(document.getElementById("kpiStockQty"), totals.totalStockQty);
   animateCount(document.getElementById("kpiStockValue"), totals.stockValue, {money:true});
   animateCount(document.getElementById("kpiSalesValue"), totals.salesValue, {money:true});
   animateCount(document.getElementById("kpiReorder"), totals.reorderCount);
-  animateCount(document.getElementById("kpiExpiry"), expiryStats.soonQty+expiryStats.overdueQty);
+  animateCount(document.getElementById("kpiExpiry"), expiryStats.soonQty);
+  animateCount(document.getElementById("kpiSamplesReceived"), sampleStats.receivedTotal);
+  animateCount(document.getElementById("kpiSamplesSent"), sampleStats.sentTotal);
   animateCount(document.getElementById("kpiDamaged"), totals.damagedQty);
-  animateCount(document.getElementById("kpiExpired"), totals.expiredQty);
+  animateCount(document.getElementById("kpiExpired"), expiryStats.overdueQty);
 }
 
 function monthsWithSales(){
@@ -773,12 +798,27 @@ function renderReorderAlerts(){
 
 function renderExpiryAlerts(expiryStats){
   const panel = document.getElementById("expiryAlertsPanel");
-  const rows = expiryStats.rows.slice(0,8);
-  if(!rows.length){ panel.innerHTML = '<p class="note" style="margin:0;">Nothing expiring in the next 30 days.</p>'; return; }
+  const all = expiryStats.rows; // already sorted soonest/most-overdue first
+  if(!all.length){ panel.innerHTML = '<p class="note" style="margin:0;">Nothing expiring in the next 30 days.</p>'; return; }
+  const rows = all.slice(0,10);
   panel.innerHTML = `<table><thead><tr><th>Product</th><th class="right">Qty</th><th>Expiry</th><th class="no-sort"></th></tr></thead><tbody>` +
     rows.map(r=>`<tr><td class="name-cell">${escapeHtml(r.productName)}</td><td class="right">${fmtNum(r.qty)}</td><td>${r.expiryDate}</td>
       <td>${r.status==="overdue" ? `<span class="tag overdue">${Math.abs(r.diffDays)}d overdue</span>` : `<span class="tag soon">${r.diffDays}d left</span>`}</td></tr>`).join("") +
-    `</tbody></table>`;
+    `</tbody></table>` +
+    (all.length>10 ? `<p class="note" style="margin:8px 0 0;">Showing ${rows.length} of ${all.length} — see Reports → Expiry Dates for the full list.</p>` : "");
+}
+
+function renderSampleActivity(sampleStats){
+  const hint = document.getElementById("sampleActivityHint");
+  if(hint) hint.textContent = `${fmtNum(sampleStats.receivedTotal)} received · ${fmtNum(sampleStats.sentTotal)} sent`;
+  const panel = document.getElementById("sampleActivityPanel");
+  const all = sampleStats.rows; // already sorted by total sample activity, busiest first
+  if(!all.length){ panel.innerHTML = '<p class="note" style="margin:0;">No sample activity recorded yet.</p>'; return; }
+  const rows = all.slice(0,10);
+  panel.innerHTML = `<table><thead><tr><th>Product</th><th class="right">Received</th><th class="right">Sent</th></tr></thead><tbody>` +
+    rows.map(r=>`<tr><td class="name-cell">${escapeHtml(r.productName)}</td><td class="right">${fmtNum(r.received)}</td><td class="right">${fmtNum(r.sent)}</td></tr>`).join("") +
+    `</tbody></table>` +
+    (all.length>10 ? `<p class="note" style="margin:8px 0 0;">Showing ${rows.length} of ${all.length} products with sample activity.</p>` : "");
 }
 
 function renderTopCustomers(){
@@ -814,7 +854,15 @@ function timeAgo(createdAt){
   return d.toLocaleDateString("en-IN", {day:"numeric", month:"short"}) + " " + d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
 }
 
-const REVERSIBLE_TYPES = ["sale","purchase","damage","expired","sample"];
+const REVERSIBLE_TYPES = ["sale","purchase","damage","expired","sample","sampleSent"];
+
+// Friendly label for the activity feed — every other type already reads fine raw;
+// only the two sample directions need spelling out so they're not shown as "sampleSent".
+function activityTypeLabel(type){
+  if(type === "sample") return "sample received";
+  if(type === "sampleSent") return "sample sent";
+  return type;
+}
 
 function renderActivityFeed(){
   const tbody = document.getElementById("activityFeedBody");
@@ -825,7 +873,7 @@ function renderActivityFeed(){
     <tr>
       <td class="mono">${timeAgo(a.createdAt)}</td>
       <td class="name-cell">${escapeHtml(a.actorName||"—")}</td>
-      <td class="name-cell">${escapeHtml(a.type)}</td>
+      <td class="name-cell">${escapeHtml(activityTypeLabel(a.type))}</td>
       <td class="name-cell">${escapeHtml(a.productName||"(deleted)")}</td>
       <td class="right">${fmtNum(a.qty)}</td>
       <td class="name-cell">${escapeHtml(a.note||"")}</td>
@@ -839,7 +887,7 @@ function renderActivityFeed(){
         if(!entry) return;
         const ok = await showConfirm({
           title:"Undo this entry?",
-          body:`This reverses the stock effect of this ${entry.type} of ${entry.qty} × "${entry.productName}" and removes it from the log. This cannot be undone.`,
+          body:`This reverses the stock effect of this ${activityTypeLabel(entry.type)} of ${entry.qty} × "${entry.productName}" and removes it from the log. This cannot be undone.`,
           okLabel:"Undo entry"
         });
         if(!ok) return;
@@ -854,12 +902,14 @@ function renderDashboard(){
   if(!currentUser) return;
   const totals = computeTotals();
   const expiryStats = computeExpiryStats();
+  const sampleStats = computeSampleStats();
   renderTape(totals);
-  renderKPIs(totals, expiryStats);
+  renderKPIs(totals, expiryStats, sampleStats);
   populateTopSellingMonths();
   renderTopSelling();
   renderReorderAlerts();
   renderExpiryAlerts(expiryStats);
+  renderSampleActivity(sampleStats);
   renderTopCustomers();
   renderActivityFeed();
 }
@@ -992,7 +1042,7 @@ document.getElementById("modifyProductSave").addEventListener("click", async ()=
   if(isNaN(purchaseTotal) || isNaN(salesTotal) || purchaseTotal<0 || salesTotal<0){
     toast("error","Enter valid non-negative numbers."); return;
   }
-  const newStock = purchaseTotal - salesTotal - (p.damageTotal||0) - (p.expiredTotal||0) + (p.sampleTotal||0);
+  const newStock = purchaseTotal - salesTotal - (p.damageTotal||0) - (p.expiredTotal||0) - (p.sampleSentTotal||0) + (p.sampleTotal||0);
   try{
     await updateDoc(doc(db,"products",p.id), {
       purchaseTotal, salesTotal, stock:newStock, updatedAt: serverTimestamp(), updatedBy: currentUser.uid
@@ -1029,10 +1079,18 @@ document.getElementById("addProductForm").addEventListener("submit", async (e)=>
   if(initialStock>0 && !expiryDate){
     flash.className="flash show error"; flash.textContent="Enter an expiry date for the initial stock — it can't be added later."; return;
   }
+  if(initialStock===0 && expiryDate){
+    // Guards against a confusing silent no-op: with 0 stock there's no batch to attach the
+    // date to, so it would otherwise be entered and quietly dropped — the product would then
+    // never show up in Expiry Dates or the dashboard's expiry KPIs despite looking "set up".
+    flash.className="flash show error";
+    flash.textContent="You entered an expiry date but no initial stock — an expiry date only sticks if there's a quantity to attach it to. Enter a stock quantity, or clear the expiry date.";
+    return;
+  }
   try{
     const productRef = await addDoc(collection(db,"products"), {
       name, pack, cost, price, gst, reorderThreshold,
-      stock: initialStock, purchaseTotal: initialStock, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0,
+      stock: initialStock, purchaseTotal: initialStock, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0, sampleSentTotal:0,
       maxCost:cost, batches: initialStock>0 ? [{ qty:initialStock, expiryDate, purchaseDate: todayISO() }] : [],
       archived:false,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: currentUser.uid
@@ -1100,6 +1158,9 @@ document.getElementById("saleForm").addEventListener("submit", async (e)=>{
   if(!productId || !qty || qty<=0 || isNaN(price) || price<0 || !date){
     flash.className="flash show error"; flash.textContent="Please fill in product, a positive quantity, price, and date."; return;
   }
+  if(!party){
+    flash.className="flash show error"; flash.textContent="Client is required — every sale must be linked to a client."; return;
+  }
   try{
     await recordSale({productId, qty, price, party, date, note});
     flash.className="flash show success"; flash.textContent="Sale recorded.";
@@ -1145,6 +1206,9 @@ document.getElementById("purchaseForm").addEventListener("submit", async (e)=>{
   }
   if(!expiryDate){
     flash.className="flash show error"; flash.textContent="Expiry date is required — it can't be added or changed after this purchase is saved."; return;
+  }
+  if(!vendor){
+    flash.className="flash show error"; flash.textContent="Supplier is required — every purchase must be linked to a supplier."; return;
   }
   try{
     await recordPurchase({productId, qty, price, vendor, date, expiryDate, note});
@@ -1342,10 +1406,11 @@ function reportStockValue(){
     const value = (p.stock||0) * cost;
     const damagedQty = p.damageTotal||0;
     const sampleQty = p.sampleTotal||0;
-    return { csv:[p.name, p.pack||"", p.stock||0, cost, value, damagedQty, sampleQty],
-      display:[escapeHtml(p.name), escapeHtml(p.pack||""), fmtNum(p.stock), fmtMoney(cost), fmtMoney(value), fmtNum(damagedQty), fmtNum(sampleQty)] };
+    const sampleSentQty = p.sampleSentTotal||0;
+    return { csv:[p.name, p.pack||"", p.stock||0, cost, value, damagedQty, sampleQty, sampleSentQty],
+      display:[escapeHtml(p.name), escapeHtml(p.pack||""), fmtNum(p.stock), fmtMoney(cost), fmtMoney(value), fmtNum(damagedQty), fmtNum(sampleQty), fmtNum(sampleSentQty)] };
   }).sort((a,b)=>b.csv[4]-a.csv[4]);
-  return { headers:["Product","Pack","Stock","Cost (highest)","Value","Damaged Qty","Sample Qty"], rows };
+  return { headers:["Product","Pack","Stock","Cost (highest)","Value","Damaged Qty","Sample Received Qty","Sample Sent Qty"], rows };
 }
 
 function reportPriceList(){
@@ -1584,9 +1649,9 @@ document.getElementById("userModalSave").addEventListener("click", async ()=>{
 /* ============================== 13. BACKUP & SETTINGS ============================== */
 
 document.getElementById("exportProductsCsv").addEventListener("click", ()=>{
-  const headers = ["Name","Pack","Stock","Cost","Price","GST %","Reorder Threshold","Purchased (total)","Sold (total)","Damaged","Expired","Sample","Highest Cost"];
+  const headers = ["Name","Pack","Stock","Cost","Price","GST %","Reorder Threshold","Purchased (total)","Sold (total)","Damaged","Expired","Sample Received","Sample Sent","Highest Cost"];
   const rows = activeProducts().map(p=>[p.name, p.pack||"", p.stock||0, p.cost||0, p.price||0, p.gst||0, p.reorderThreshold||0,
-    p.purchaseTotal||0, p.salesTotal||0, p.damageTotal||0, p.expiredTotal||0, p.sampleTotal||0, p.maxCost||p.cost||0]);
+    p.purchaseTotal||0, p.salesTotal||0, p.damageTotal||0, p.expiredTotal||0, p.sampleTotal||0, p.sampleSentTotal||0, p.maxCost||p.cost||0]);
   downloadText(`terra-foods-products-${todayISO()}.csv`, toCsv(headers, rows));
 });
 
@@ -1763,7 +1828,7 @@ document.getElementById("confirmImportBtn").addEventListener("click", async ()=>
         }
         await addDoc(collection(db,"products"), {
           name:row.name, pack:row.pack, cost:row.cost, price:row.price, gst:row.gst, reorderThreshold:row.reorderThreshold,
-          stock:initialStock, purchaseTotal:initialStock, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0,
+          stock:initialStock, purchaseTotal:initialStock, salesTotal:0, damageTotal:0, expiredTotal:0, sampleTotal:0, sampleSentTotal:0,
           maxCost:row.cost, batches: initialStock>0 ? [{ qty:initialStock, expiryDate: row.expiryDate, purchaseDate:null }] : [], archived:false,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: currentUser.uid
         });

@@ -147,13 +147,17 @@
         </div>
         <div class="two-col">
           <div class="panel">
-            <h2>Expiring Soon / Overdue</h2>
+            <h2>Top 10 Products About to Expire</h2>
             <div id="expiryAlertsPanel"></div>
           </div>
           <div class="panel">
             <h2>Top Customers</h2>
             <div id="topCustomersPanel"></div>
           </div>
+        </div>
+        <div class="panel">
+          <h2>Sample Activity <span class="hint" id="sampleActivityHint"></span></h2>
+          <div id="sampleActivityPanel"></div>
         </div>
         <div class="panel">
           <h2>Recent Activity <span class="hint">newest first — shows who made each change</span></h2>
@@ -206,7 +210,7 @@
               <div><label for="npStock">Initial stock (optional)</label><input type="number" id="npStock" min="0" step="1" placeholder="0"></div>
               <div><label for="npExpiry">Expiry date for this stock</label><input type="date" id="npExpiry"></div>
             </div>
-            <p class="note" style="margin-top:6px;">If you enter an initial stock quantity, its expiry date is required — expiry dates can only be set once, here or when recording a purchase, and can't be changed later.</p>
+            <p class="note" style="margin-top:6px;">Stock and expiry date go together — enter both or neither. A stock quantity needs an expiry date to be tracked, and an expiry date with no stock has nothing to attach to. Once saved, an expiry date can't be changed later (only set again via a new purchase).</p>
             <button type="submit" class="btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               Add product
@@ -228,8 +232,8 @@
               <div><label for="salePrice">Unit price</label><input type="number" id="salePrice" min="0" step="0.01" required></div>
             </div>
             <div class="form-grid">
-              <div><label for="saleParty">Client (optional — walk-in if blank)</label>
-                <input type="text" id="saleParty" list="clientsList" placeholder="Type to search or add new…"></div>
+              <div><label for="saleParty">Client</label>
+                <input type="text" id="saleParty" list="clientsList" placeholder="Type to search or add new…" required></div>
               <div><label for="saleDate">Date</label><input type="date" id="saleDate" required></div>
             </div>
             <label for="saleNote">Note (optional)</label>
@@ -256,8 +260,8 @@
               <div><label for="purchasePrice">Unit cost</label><input type="number" id="purchasePrice" min="0" step="0.01" required></div>
             </div>
             <div class="form-grid">
-              <div><label for="purchaseVendor">Supplier (optional)</label>
-                <input type="text" id="purchaseVendor" list="suppliersList" placeholder="Type to search or add new…"></div>
+              <div><label for="purchaseVendor">Supplier</label>
+                <input type="text" id="purchaseVendor" list="suppliersList" placeholder="Type to search or add new…" required></div>
               <div><label for="purchaseDate">Date received</label><input type="date" id="purchaseDate" required></div>
             </div>
             <label for="purchaseExpiry">Expiry date for this batch</label>
@@ -277,7 +281,7 @@
       <section class="view" id="view-adjustments" data-roles="admin,manager,staff">
         <div class="panel">
           <h2>Stock Adjustment</h2>
-          <p class="note">Use this for damage, expired write-offs, or free vendor samples received.</p>
+          <p class="note">Use this for damage, expired write-offs, or free samples received from a vendor or sent out to a client.</p>
           <div class="flash" id="adjustFlash"></div>
           <form class="entry" id="adjustForm">
             <label for="adjustType">Adjustment type</label>
@@ -285,6 +289,7 @@
               <option value="damage">Damage</option>
               <option value="expired">Expired write-off</option>
               <option value="sample">Sample received (adds stock)</option>
+              <option value="sampleSent">Sample sent (subtracts stock)</option>
             </select>
             <label for="adjustProduct">Product</label>
             <select id="adjustProduct" required></select>
@@ -467,7 +472,7 @@
 <div class="modal-overlay" id="modifyProductModal">
   <div class="modal-box">
     <h3>Correct Totals</h3>
-    <p>Adjust the all-time purchase/sales totals for <strong id="modifyProductName"></strong>. Stock recalculates as Purchase − Sales − Damage − Expired + Sample.</p>
+    <p>Adjust the all-time purchase/sales totals for <strong id="modifyProductName"></strong>. Stock recalculates as Purchase − Sales − Damage − Expired − Sample Sent + Sample Received.</p>
     <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Total purchased</label>
     <input type="number" id="modifyPurchase" min="0">
     <label style="display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 5px;">Total sold</label>

@@ -69,7 +69,7 @@ service cloud.firestore {
         (isManager() && !changedKeys().hasAny(['archived'])) ||
         (isStaff() && changedKeys().hasOnly([
           'stock','batches','purchaseTotal','salesTotal','damageTotal','expiredTotal',
-          'sampleTotal','maxCost','updatedAt','updatedBy'
+          'sampleTotal','sampleSentTotal','maxCost','updatedAt','updatedBy'
         ]));
 
       // Real deletes only happen via the admin/manager "wipe data" tool.
